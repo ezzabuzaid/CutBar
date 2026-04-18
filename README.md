@@ -5,104 +5,75 @@
 [![Platform](https://img.shields.io/badge/platform-macOS%2014%2B-2f312d)](https://www.apple.com/macos)
 [![Swift](https://img.shields.io/badge/swift-6-3d755d)](https://swift.org)
 
-CutBar is a standalone macOS menu bar app (Swift Package) for logging meals and tracking daily protein/calorie progress.
+A menu bar meal tracker for your 18:6 protocol. Protein and calories at a glance — and your data never leaves your Mac.
 
-## What It Does
-
-- Runs as a menu bar extra with quick status.
-- Tracks entries across fixed meal slots (`meal1`, `shake`, `meal2`).
-- Shows dashboard and meal history windows.
-- Persists data in a local SQLite store.
-
-## Requirements
-
-- macOS 14+
-- Xcode with Swift 6 toolchain
+![CutBar](branding/generated/hero.png)
 
 ## Install
 
-### Option 1: Install from GitHub Release (Recommended)
+1. Grab the latest `CutBar-<version>.dmg` from [Releases](https://github.com/ezzabuzaid/CutBar/releases).
+2. Open the DMG and drag **CutBar.app** to **Applications**.
+3. Launch it. Look up — it lives in your menu bar.
 
-1. Open the project releases page on GitHub.
-2. Download the latest `CutBar-<version>.dmg`.
-3. Open the DMG and drag `CutBar.app` to `Applications`.
-4. Launch `CutBar.app`.
+Requires macOS 14 Sonoma or later. The app is signed and notarized. Updates are manual today — re-download to upgrade.
 
-### Option 2: Run from Source
+## What you see
 
-```bash
-git clone <repo-url>
-cd CutBar
-./scripts/build_and_run.sh
-```
+**In the menu bar:** today's protein (g) and calories, live.
 
-## Quick Start
+**Click it** to drop a compact panel with:
 
-Run the app:
+- The phase you're currently in — Fasting, Meal 1, Gym, Shake, or Meal 2 — with its time window.
+- Progress bars toward your daily protein and calorie targets.
+- All three meal slots with the protein logged in each.
+- **Quick Log** — one-click food presets, or `+ New Entry` for anything else.
+- Your last three entries (right-click to delete).
 
-```bash
-./scripts/build_and_run.sh
-```
+## The protocol
 
-Useful modes:
+CutBar is built around an 18:6 feeding window with three fixed slots:
 
-```bash
-./scripts/build_and_run.sh --verify
-./scripts/build_and_run.sh --logs
-./scripts/build_and_run.sh --telemetry
-./scripts/build_and_run.sh --debug
-```
+| Slot           | Window              |
+| -------------- | ------------------- |
+| Meal 1         | 5:00 PM – 6:30 PM   |
+| Post-Gym Shake | 8:00 PM – 8:30 PM   |
+| Meal 2         | 8:30 PM – 11:00 PM  |
 
-## Testing
+The windows aren't configurable yet.
 
-Run tests:
+## Windows
 
-```bash
-swift test --disable-sandbox
-```
+- **Dashboard** — full-day view with a card per slot, targets, and what you've logged.
+- **Meal History** — scrollable list of past days, grouped by date.
 
-For restricted/sandboxed environments, use local cache paths:
+Open either from the menu bar panel footer.
 
-```bash
-mkdir -p .tmp-swift-cache/home .tmp-swift-cache/clang-module-cache .tmp-swift-cache/swiftpm-cache
-HOME="$PWD/.tmp-swift-cache/home" \
-CLANG_MODULE_CACHE_PATH="$PWD/.tmp-swift-cache/clang-module-cache" \
-SWIFTPM_CACHE_DIR="$PWD/.tmp-swift-cache/swiftpm-cache" \
-swift test --disable-sandbox
-```
+## Shortcuts
 
-## Development Docs
+| Key | Action           |
+| --- | ---------------- |
+| ⌘N  | New entry        |
+| ⌘R  | Refresh totals   |
+| ⌘Y  | Meal History     |
+| ⌘S  | Save entry       |
+| ⌘Q  | Quit             |
 
-- [Contributing Guide](CONTRIBUTING.md)
-- [Developers Guide](DEVELOPERS.md)
-- [Architecture](docs/ARCHITECTURE.md)
-- [Local Development](docs/LOCAL_DEVELOPMENT.md)
-- [Testing Guide](docs/TESTING.md)
-- [Troubleshooting](docs/TROUBLESHOOTING.md)
-- [Changelog](CHANGELOG.md)
+## Your data is yours
 
-## Release
-
-Local manual release:
-
-```bash
-./scripts/release.sh <version>
-```
-
-Automated release is tag-driven via `.github/workflows/release-on-tag.yml`:
-
-```bash
-git tag vX.Y.Z
-git push origin vX.Y.Z
-```
-
-On tag push, the workflow validates tag format and `main` ancestry, builds/signs/notarizes, and publishes:
-
-- `CutBar-<version>.dmg`
-- `CutBar-<version>.app.zip`
-
-Full release details and required secrets are documented in [docs/RELEASE.md](docs/RELEASE.md).
+Everything is stored locally in a SQLite database at `~/Library/Application Support/CutBar/food-log.sqlite`. No network calls. No telemetry. No accounts.
 
 ## Security
 
 Report vulnerabilities using the process in [SECURITY.md](SECURITY.md).
+
+## For developers
+
+Building from source, running tests, and cutting releases are covered in [DEVELOPERS.md](DEVELOPERS.md) and the [`docs/`](docs/) folder:
+
+- [Architecture](docs/ARCHITECTURE.md)
+- [Local Development](docs/LOCAL_DEVELOPMENT.md)
+- [Testing Guide](docs/TESTING.md)
+- [Release Process](docs/RELEASE.md)
+- [Troubleshooting](docs/TROUBLESHOOTING.md)
+- [Contributing](CONTRIBUTING.md)
+- [Changelog](CHANGELOG.md)
