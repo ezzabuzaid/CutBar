@@ -170,17 +170,134 @@ jobs:
       - prepare
       - build_and_notarize
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
       - name: Download release artifacts
         uses: actions/download-artifact@v4
         with:
           name: cutbar-release-${{ needs.prepare.outputs.version }}
           path: dist
 
+      - name: Generate release notes from Conventional Commits
+        shell: bash
+        env:
+          CURRENT_TAG: ${{ needs.prepare.outputs.tag_name }}
+        run: |
+          set -euo pipefail
+
+          git fetch --tags --force
+
+          PREVIOUS_TAG="$(
+            git tag --sort=-version:refname \
+              | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+' \
+              | grep -v "^${CURRENT_TAG}$" \
+              | head -n1 || true
+          )"
+
+          if [[ -n "$PREVIOUS_TAG" ]]; then
+            RANGE="${PREVIOUS_TAG}..${CURRENT_TAG}"
+          else
+            RANGE="${CURRENT_TAG}"
+          fi
+
+          ADDED_FILE="$RUNNER_TEMP/release-added.txt"
+          CHANGED_FILE="$RUNNER_TEMP/release-changed.txt"
+          FIXED_FILE="$RUNNER_TEMP/release-fixed.txt"
+          BREAKING_FILE="$RUNNER_TEMP/release-breaking.txt"
+          OTHER_FILE="$RUNNER_TEMP/release-other.txt"
+          : > "$ADDED_FILE"
+          : > "$CHANGED_FILE"
+          : > "$FIXED_FILE"
+          : > "$BREAKING_FILE"
+          : > "$OTHER_FILE"
+          CONVENTIONAL_REGEX='^([a-z]+)(\([^)]+\))?(!)?:[[:space:]]+(.+)$'
+
+          while IFS= read -r subject; do
+            if [[ "$subject" =~ $CONVENTIONAL_REGEX ]]; then
+              commit_type="${BASH_REMATCH[1]}"
+              scope="${BASH_REMATCH[2]}"
+              bang="${BASH_REMATCH[3]}"
+              description="${BASH_REMATCH[4]}"
+
+              line="- ${description}"
+              if [[ -n "$scope" ]]; then
+                line="- ${scope}: ${description}"
+              fi
+
+              if [[ -n "$bang" ]]; then
+                printf "%s\n" "$line" >> "$BREAKING_FILE"
+              fi
+
+              case "$commit_type" in
+                feat)
+                  printf "%s\n" "$line" >> "$ADDED_FILE"
+                  ;;
+                fix|perf)
+                  printf "%s\n" "$line" >> "$FIXED_FILE"
+                  ;;
+                refactor|build|ci|docs|style|test|chore)
+                  printf "%s\n" "$line" >> "$CHANGED_FILE"
+                  ;;
+                *)
+                  printf -- "- %s\n" "$subject" >> "$OTHER_FILE"
+                  ;;
+              esac
+            else
+              printf -- "- %s\n" "$subject" >> "$OTHER_FILE"
+            fi
+          done < <(git log --pretty=format:'%s' "$RANGE")
+
+          append_section() {
+            local title="$1"
+            local file="$2"
+            if [[ -s "$file" ]]; then
+              {
+                echo "### ${title}"
+                cat "$file"
+                echo
+              } >> release_notes.md
+            fi
+          }
+
+          {
+            echo "## What Changed"
+            echo
+          } > release_notes.md
+
+          append_section "Added" "$ADDED_FILE"
+          append_section "Changed" "$CHANGED_FILE"
+          append_section "Fixed" "$FIXED_FILE"
+          append_section "Breaking Changes" "$BREAKING_FILE"
+          append_section "Other" "$OTHER_FILE"
+
+          if [[ ! -s "$ADDED_FILE" && ! -s "$CHANGED_FILE" && ! -s "$FIXED_FILE" && ! -s "$BREAKING_FILE" && ! -s "$OTHER_FILE" ]]; then
+            {
+              echo "- Internal maintenance updates."
+              echo
+            } >> release_notes.md
+          fi
+
+          {
+            echo "## Assets"
+            echo
+            echo "- CutBar-${CURRENT_TAG#v}.dmg"
+            echo "- CutBar-${CURRENT_TAG#v}.app.zip"
+            echo
+            if [[ -n "$PREVIOUS_TAG" ]]; then
+              echo "## Full Changelog"
+              echo
+              echo "https://github.com/${GITHUB_REPOSITORY}/compare/${PREVIOUS_TAG}...${CURRENT_TAG}"
+            fi
+          } >> release_notes.md
+
       - name: Create or update GitHub release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ needs.prepare.outputs.tag_name }}
-          generate_release_notes: true
+          body_path: release_notes.md
           prerelease: ${{ needs.prepare.outputs.is_prerelease == 'true' }}
           files: |
             dist/CutBar-${{ needs.prepare.outputs.version }}.dmg

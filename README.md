@@ -1,15 +1,45 @@
 # CutBar
 
-Standalone macOS menu bar app (Swift Package).
+CutBar is a standalone macOS menu bar app (Swift Package) for logging meals and tracking daily protein/calorie progress.
+
+## What It Does
+
+- Runs as a menu bar extra with quick status.
+- Tracks entries across fixed meal slots (`meal1`, `shake`, `meal2`).
+- Shows dashboard and meal history windows.
+- Persists data in a local SQLite store.
 
 ## Requirements
 
 - macOS 14+
 - Xcode with Swift 6 toolchain
 
-## Local Test
+## Quick Start
 
-Use local cache paths when running in restricted/sandboxed environments:
+Run the app:
+
+```bash
+./scripts/build_and_run.sh
+```
+
+Useful modes:
+
+```bash
+./scripts/build_and_run.sh --verify
+./scripts/build_and_run.sh --logs
+./scripts/build_and_run.sh --telemetry
+./scripts/build_and_run.sh --debug
+```
+
+## Testing
+
+Run tests:
+
+```bash
+swift test --disable-sandbox
+```
+
+For restricted/sandboxed environments, use local cache paths:
 
 ```bash
 mkdir -p .tmp-swift-cache/home .tmp-swift-cache/clang-module-cache .tmp-swift-cache/swiftpm-cache
@@ -19,67 +49,38 @@ SWIFTPM_CACHE_DIR="$PWD/.tmp-swift-cache/swiftpm-cache" \
 swift test --disable-sandbox
 ```
 
-## Run App
+## Development Docs
 
-```bash
-./scripts/build_and_run.sh
-```
-
-Other modes:
-
-```bash
-./scripts/build_and_run.sh --verify
-./scripts/build_and_run.sh --logs
-./scripts/build_and_run.sh --telemetry
-./scripts/build_and_run.sh --debug
-```
+- [Contributing Guide](CONTRIBUTING.md)
+- [Developers Guide](DEVELOPERS.md)
+- [Architecture](docs/ARCHITECTURE.md)
+- [Local Development](docs/LOCAL_DEVELOPMENT.md)
+- [Testing Guide](docs/TESTING.md)
+- [Troubleshooting](docs/TROUBLESHOOTING.md)
+- [Changelog](CHANGELOG.md)
 
 ## Release
 
-### Local Manual Release
+Local manual release:
 
 ```bash
 ./scripts/release.sh <version>
 ```
 
-Release prerequisites:
-
-- Valid Developer ID cert matching `SIGNING_IDENTITY` in `scripts/release.sh`
-- Configured notarytool profile matching `NOTARY_PROFILE` in `scripts/release.sh`
-- Codesign + notarization access on the machine running the release script
-
-### Automated GitHub Tag Release
-
-Tag-based releases are fully automated through
-`.github/workflows/release-on-tag.yml`.
-
-Trigger a release by pushing a semver tag with `v` prefix:
+Automated release is tag-driven via `.github/workflows/release-on-tag.yml`:
 
 ```bash
 git tag vX.Y.Z
 git push origin vX.Y.Z
 ```
 
-The workflow only runs on `v*` tags and:
+On tag push, the workflow validates tag format and `main` ancestry, builds/signs/notarizes, and publishes:
 
-- Validates tag format as `v<semver>`
-- Derives app version by stripping leading `v`
-- Fails if the tagged commit is not reachable from `main`
-- Marks prerelease tags (for example `v1.2.3-rc.1`) as GitHub prereleases
-- Builds/signs/notarizes with `./scripts/release.sh <version>`
-- Publishes a GitHub Release with:
-  - `CutBar-<version>.dmg`
-  - `CutBar-<version>.app.zip`
+- `CutBar-<version>.dmg`
+- `CutBar-<version>.app.zip`
 
-Required repository secrets:
+Full release details and required secrets are documented in [docs/RELEASE.md](docs/RELEASE.md).
 
-- `MACOS_CERT_P12_BASE64`
-- `MACOS_CERT_PASSWORD`
-- `APPLE_ID`
-- `APPLE_APP_SPECIFIC_PASSWORD`
-- `APPLE_TEAM_ID`
+## Security
 
-Optional repository secrets:
-
-- `NOTARY_PROFILE` (defaults to `CutBar`)
-- `SIGNING_IDENTITY` (defaults to script-derived identity)
+Report vulnerabilities using the process in [SECURITY.md](SECURITY.md).
