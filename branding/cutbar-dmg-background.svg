@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 660 400" width="660" height="400" role="img" aria-labelledby="cutbar-dmg-title">
+  <title id="cutbar-dmg-title">CutBar installer background</title>
+  <defs>
+    <linearGradient id="cutbar-dmg-bg" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#f8f7f1"/>
+      <stop offset="100%" stop-color="#e9ede3"/>
+    </linearGradient>
+    <linearGradient id="cutbar-dmg-arrow" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#3d755d" stop-opacity="0.30"/>
+      <stop offset="100%" stop-color="#3d755d"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="660" height="400" fill="url(#cutbar-dmg-bg)"/>
+
+  <g transform="translate(230 36)">
+    <g transform="scale(0.85)">
+      <rect x="14" y="18" width="8" height="12" rx="1.6" fill="#3d755d"/>
+      <rect x="28" y="12" width="8" height="18" rx="1.6" fill="#3d755d"/>
+      <rect x="42" y="6"  width="8" height="24" rx="1.6" fill="#3d755d"/>
+      <rect x="12" y="28" width="40" height="5"  rx="1.6" fill="#2f312d"/>
+      <rect x="27" y="33" width="10" height="24" rx="3"   fill="#2f312d"/>
+    </g>
+    <text x="70" y="44" font-family="-apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="32" font-weight="700" letter-spacing="-0.8">
+      <tspan fill="#2f312d">Cut</tspan><tspan fill="#3d755d">Bar</tspan>
+    </text>
+  </g>
+
+  <g transform="translate(220 235)">
+    <path d="M0 0 L180 0 L180 -14 L225 10 L180 34 L180 20 L0 20 Z" fill="url(#cutbar-dmg-arrow)"/>
+  </g>
+
+  <text x="330" y="340" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="15" font-weight="500" letter-spacing="0.2" fill="#5b5f58">
+    Drag CutBar to the Applications folder to install
+  </text>
+
+  <circle cx="160" cy="245" r="58" fill="none" stroke="#3d755d" stroke-width="1.5" stroke-dasharray="4 4" opacity="0.45"/>
+  <circle cx="500" cy="245" r="58" fill="none" stroke="#8a8d84" stroke-width="1.5" stroke-dasharray="4 4" opacity="0.45"/>
+</svg>

@@ -18,6 +18,7 @@ let package = Package(
             name: "CutBar",
             resources: [
                 .copy("Resources/Fonts"),
+                .process("Resources/Assets.xcassets"),
             ],
             linkerSettings: [
                 .linkedLibrary("sqlite3"),

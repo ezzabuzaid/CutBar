@@ -222,6 +222,7 @@ struct MenuBarPanelView: View {
             ProgressView(value: progress)
                 .progressViewStyle(.linear)
                 .tint(Color.themeAccent)
+                .animation(.spring(response: 0.5, dampingFraction: 0.9), value: progress)
         }
     }
 
@@ -263,8 +264,9 @@ private struct FooterRowButton: View {
                     .fill(isHovered ? Color.themeHover : Color.clear)
             )
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.pressable)
         .onHover { isHovered = $0 }
+        .animation(.easeOut(duration: 0.15), value: isHovered)
     }
 }
 
@@ -296,12 +298,13 @@ private struct RecentEntryRow: View {
             .padding(.vertical, 6)
             .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.pressable)
         .background(
             RoundedRectangle(cornerRadius: 8, style: .continuous)
                 .fill(isHovered ? Color.themeHover : Color.clear)
         )
         .onHover { isHovered = $0 }
+        .animation(.easeOut(duration: 0.15), value: isHovered)
         .accessibilityHint("Opens the dashboard")
         .contextMenu {
             Button(role: .destructive, action: onDelete) {

@@ -20,6 +20,11 @@ APP_BINARY="$APP_MACOS/$APP_NAME"
 INFO_PLIST="$APP_CONTENTS/Info.plist"
 ENTITLEMENTS="$DIST_DIR/CutBar.entitlements"
 DMG_PATH="$DIST_DIR/${APP_NAME}-${VERSION}.dmg"
+BRAND_GEN_DIR="$ROOT_DIR/branding/generated"
+APP_ICON_SRC="$BRAND_GEN_DIR/AppIcon.icns"
+VOLUME_ICON_SRC="$BRAND_GEN_DIR/VolumeIcon.icns"
+DMG_BG_SRC="$BRAND_GEN_DIR/dmg/background.png"
+DMG_BG_SRC_2X="$BRAND_GEN_DIR/dmg/background@2x.png"
 
 say() { printf "\n==> %s\n" "$*"; }
 
@@ -54,6 +59,14 @@ if ! notary_history_output="$(
   exit 1
 fi
 
+say "Generating brand assets from branding/*.svg"
+"$ROOT_DIR/scripts/generate_assets.sh"
+
+if [[ ! -f "$APP_ICON_SRC" ]]; then
+  printf "Missing %s after generation.\n" "$APP_ICON_SRC" >&2
+  exit 1
+fi
+
 say "Building Release (universal arm64 + x86_64)"
 swift build -c release --disable-sandbox --package-path "$PACKAGE_DIR" \
   --arch arm64 --arch x86_64
@@ -65,6 +78,7 @@ rm -rf "$APP_BUNDLE"
 mkdir -p "$APP_MACOS" "$APP_RESOURCES"
 cp "$BUILD_BINARY" "$APP_BINARY"
 chmod +x "$APP_BINARY"
+cp "$APP_ICON_SRC" "$APP_RESOURCES/AppIcon.icns"
 
 for bundle in "$BUILD_BIN_PATH"/*.bundle; do
   [ -d "$bundle" ] || continue
@@ -108,15 +122,25 @@ cat >"$INFO_PLIST" <<PLIST
   <string>$BUNDLE_ID</string>
   <key>CFBundleName</key>
   <string>$APP_NAME</string>
+  <key>CFBundleDisplayName</key>
+  <string>$APP_NAME</string>
+  <key>CFBundleIconFile</key>
+  <string>AppIcon</string>
   <key>CFBundlePackageType</key>
   <string>APPL</string>
   <key>CFBundleShortVersionString</key>
   <string>$VERSION</string>
   <key>CFBundleVersion</key>
   <string>$VERSION</string>
+  <key>LSApplicationCategoryType</key>
+  <string>public.app-category.healthcare-fitness</string>
   <key>LSMinimumSystemVersion</key>
   <string>$MIN_SYSTEM_VERSION</string>
   <key>LSUIElement</key>
+  <true/>
+  <key>NSHighResolutionCapable</key>
+  <true/>
+  <key>NSSupportsAutomaticGraphicsSwitching</key>
   <true/>
   <key>NSPrincipalClass</key>
   <string>NSApplication</string>
@@ -169,15 +193,84 @@ say "Stapling notarization ticket to .app"
 xcrun stapler staple "$APP_BUNDLE"
 xcrun stapler validate "$APP_BUNDLE"
 
-say "Creating DMG from stapled app"
-TEMP_DMG_DIR="$(mktemp -d -t cutbar-dmg)"
-cp -R "$APP_BUNDLE" "$TEMP_DMG_DIR/"
-ln -s /Applications "$TEMP_DMG_DIR/Applications"
-rm -f "$DMG_PATH"
-hdiutil create -volname "$APP_NAME $VERSION" \
-  -srcfolder "$TEMP_DMG_DIR" \
-  -ov -format UDZO "$DMG_PATH"
-rm -rf "$TEMP_DMG_DIR"
+say "Creating branded DMG from stapled app"
+VOL_NAME="$APP_NAME $VERSION"
+STAGING_DIR="$(mktemp -d -t cutbar-dmg)"
+MOUNT_POINT="$(mktemp -d -t cutbar-mount)"
+RW_DMG="$DIST_DIR/${APP_NAME}-${VERSION}.rw.dmg"
+
+cleanup_dmg() {
+  if mount | grep -q " on $MOUNT_POINT "; then
+    hdiutil detach "$MOUNT_POINT" -force >/dev/null 2>&1 || true
+  fi
+  rm -rf "$STAGING_DIR" "$MOUNT_POINT"
+  rm -f "$RW_DMG"
+}
+trap cleanup_dmg EXIT
+
+cp -R "$APP_BUNDLE" "$STAGING_DIR/"
+ln -s /Applications "$STAGING_DIR/Applications"
+
+if [[ -f "$DMG_BG_SRC" ]]; then
+  mkdir -p "$STAGING_DIR/.background"
+  cp "$DMG_BG_SRC" "$STAGING_DIR/.background/background.png"
+  if [[ -f "$DMG_BG_SRC_2X" ]]; then
+    cp "$DMG_BG_SRC_2X" "$STAGING_DIR/.background/background@2x.png"
+  fi
+fi
+
+if [[ -f "$VOLUME_ICON_SRC" ]]; then
+  cp "$VOLUME_ICON_SRC" "$STAGING_DIR/.VolumeIcon.icns"
+fi
+
+rm -f "$DMG_PATH" "$RW_DMG"
+hdiutil create -volname "$VOL_NAME" \
+  -srcfolder "$STAGING_DIR" \
+  -fs HFS+ -format UDRW \
+  "$RW_DMG"
+
+say "Styling DMG window via Finder"
+hdiutil attach "$RW_DMG" -noautoopen -mountpoint "$MOUNT_POINT" >/dev/null
+
+if [[ -f "$VOLUME_ICON_SRC" ]]; then
+  SetFile -a C "$MOUNT_POINT"
+fi
+
+if [[ -f "$DMG_BG_SRC" ]]; then
+  osascript <<APPLESCRIPT
+tell application "Finder"
+  tell disk "$VOL_NAME"
+    open
+    set current view of container window to icon view
+    set toolbar visible of container window to false
+    set statusbar visible of container window to false
+    set sidebar width of container window to 0
+    set bounds of container window to {200, 200, 860, 600}
+    set theViewOptions to the icon view options of container window
+    set arrangement of theViewOptions to not arranged
+    set icon size of theViewOptions to 128
+    set text size of theViewOptions to 13
+    set background picture of theViewOptions to file ".background:background.png" of disk "$VOL_NAME"
+    set position of item "$APP_NAME.app" of container window to {160, 245}
+    set position of item "Applications" of container window to {500, 245}
+    close
+    open
+    update without registering applications
+    delay 1
+    close
+  end tell
+end tell
+APPLESCRIPT
+fi
+
+sync
+hdiutil detach "$MOUNT_POINT" -force >/dev/null || hdiutil detach "$MOUNT_POINT" >/dev/null
+
+say "Compressing DMG to UDZO"
+hdiutil convert "$RW_DMG" -format UDZO -imagekey zlib-level=9 -o "$DMG_PATH"
+
+say "Signing DMG"
+codesign --force --sign "$SIGNING_IDENTITY" --timestamp "$DMG_PATH"
 
 say "Submitting DMG for notarization (so it's stapled too)"
 xcrun notarytool submit "$DMG_PATH" \

@@ -21,25 +21,19 @@ struct DashboardView: View {
         }
         .frame(minWidth: 460, minHeight: 560)
         .background(Color.themeSurface)
-        .sheet(isPresented: draftPresented) {
-            if let draft = Binding($model.activeDraft) {
-                FoodEntryComposerView(
-                    draft: draft,
-                    onSave: model.saveDraft,
-                    onCancel: model.cancelDraft
-                )
-            }
+        .sheet(item: $model.activeDraft) { draft in
+            FoodEntryComposerView(
+                draft: draftBinding(fallback: draft),
+                onSave: model.saveDraft,
+                onCancel: model.cancelDraft
+            )
         }
     }
 
-    private var draftPresented: Binding<Bool> {
+    private func draftBinding(fallback: FoodEntryDraft) -> Binding<FoodEntryDraft> {
         Binding(
-            get: { model.activeDraft != nil },
-            set: { presented in
-                if !presented {
-                    model.cancelDraft()
-                }
-            }
+            get: { model.activeDraft ?? fallback },
+            set: { model.activeDraft = $0 }
         )
     }
 
@@ -129,6 +123,7 @@ struct DashboardView: View {
             ProgressView(value: progress)
                 .progressViewStyle(.linear)
                 .tint(Color.themeAccent)
+                .animation(.spring(response: 0.5, dampingFraction: 0.9), value: progress)
         }
     }
 
@@ -143,7 +138,7 @@ struct DashboardView: View {
         .padding(.horizontal, 12)
         .padding(.vertical, 10)
         .background(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
                 .fill(Color.themeCard)
         )
     }

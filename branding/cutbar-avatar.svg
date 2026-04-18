@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-labelledby="cutbar-avatar-title">
+  <title id="cutbar-avatar-title">CutBar avatar</title>
+  <defs>
+    <radialGradient id="cutbar-avatar-bg" cx="50%" cy="32%" r="80%">
+      <stop offset="0%" stop-color="#0a1d14"/>
+      <stop offset="60%" stop-color="#051810"/>
+      <stop offset="100%" stop-color="#02120c"/>
+    </radialGradient>
+  </defs>
+
+  <rect width="512" height="512" fill="url(#cutbar-avatar-bg)"/>
+
+  <g transform="translate(32 36) scale(7)">
+    <rect x="14" y="18" width="8" height="12" rx="1.6" fill="#e4f222"/>
+    <rect x="28" y="12" width="8" height="18" rx="1.6" fill="#e4f222"/>
+    <rect x="42" y="6"  width="8" height="24" rx="1.6" fill="#e4f222"/>
+    <rect x="12" y="28" width="40" height="5"  rx="1.6" fill="#f5f3ed"/>
+    <rect x="27" y="33" width="10" height="24" rx="3"   fill="#f5f3ed"/>
+  </g>
+</svg>

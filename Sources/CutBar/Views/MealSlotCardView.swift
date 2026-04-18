@@ -11,11 +11,14 @@ struct MealSlotCardView: View {
         let proteinProgress = target.proteinGrams == 0 ? 0 : min(1, Double(summary.proteinGrams) / Double(target.proteinGrams))
         let calorieProgress = target.calories == 0 ? 0 : min(1, Double(summary.calories) / Double(target.calories))
 
+        let entryCount = model.slotEntries(for: slot).count
+
         VStack(alignment: .leading, spacing: 14) {
             HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 4) {
                     Label(slot.title, systemImage: slot.systemImage)
                         .font(.appTitle3)
+                        .symbolEffect(.bounce, value: entryCount)
                     Text(slot.windowText)
                         .font(.appSubheadline)
                         .foregroundStyle(.secondary)
@@ -37,12 +40,14 @@ struct MealSlotCardView: View {
             }
             .progressViewStyle(.linear)
             .tint(Color.themeAccent)
+            .animation(.spring(response: 0.5, dampingFraction: 0.9), value: proteinProgress)
 
             ProgressView(value: calorieProgress) {
                 Text("Calorie progress")
             }
             .progressViewStyle(.linear)
             .tint(Color.themeAccent)
+            .animation(.spring(response: 0.5, dampingFraction: 0.9), value: calorieProgress)
 
             if !model.presets(for: slot).isEmpty {
                 VStack(alignment: .leading, spacing: 8) {
@@ -105,7 +110,11 @@ struct MealSlotCardView: View {
                         ) {
                             model.delete(entry)
                         }
+                        .transition(
+                            .opacity.combined(with: .move(edge: .top))
+                        )
                     }
+                    .animation(.spring(response: 0.35, dampingFraction: 0.85), value: entryCount)
                 }
             }
         }
@@ -158,6 +167,8 @@ private struct LoggedEntryRowView: View {
                     confirmingDelete = true
                 } label: {
                     Image(systemName: "trash")
+                        .frame(minWidth: 28, minHeight: 28)
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
                 .disabled(!canMutateStorage)
@@ -166,15 +177,16 @@ private struct LoggedEntryRowView: View {
         }
         .padding(12)
         .background(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
                 .fill(Color.themeCard)
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
                 .fill(isHovered ? Color.themeHover : Color.clear)
         )
-        .contentShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .contentShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         .onHover { isHovered = $0 }
+        .animation(.easeOut(duration: 0.15), value: isHovered)
         .contextMenu {
             Button(role: .destructive) {
                 confirmingDelete = true

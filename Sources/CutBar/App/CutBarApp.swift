@@ -3,6 +3,7 @@ import SwiftUI
 
 private final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
+        // Intentional menu-bar-first behavior with on-demand windows.
         NSApp.setActivationPolicy(.accessory)
         AppFonts.registerBundled()
         AppLogger.lifecycle.info("CutBar launched as an accessory menu bar app.")
@@ -15,14 +16,17 @@ struct CutBarApp: App {
     @State private var model = CutBarModel()
 
     var body: some Scene {
-        MenuBarExtra(model.menuBarTitle, systemImage: model.currentPhase.systemImage) {
+        MenuBarExtra {
             MenuBarPanelView(model: model)
                 .tint(Color.themeAccent)
                 .foregroundColor(Color.themeInk)
+        } label: {
+            Image.brandMenuBarIcon
+                .accessibilityLabel("CutBar")
         }
         .menuBarExtraStyle(.window)
 
-        Window("CutBar Dashboard", id: "dashboard") {
+        WindowGroup("CutBar Dashboard", id: "dashboard") {
             DashboardView(model: model)
                 .tint(Color.themeAccent)
                 .foregroundColor(Color.themeInk)
@@ -30,6 +34,9 @@ struct CutBarApp: App {
         .defaultSize(width: 500, height: 760)
         .windowResizability(.contentMinSize)
         .commands {
+            CommandGroup(replacing: .appInfo) {
+                AboutCommand()
+            }
             CommandGroup(replacing: .newItem) {
                 NewEntryCommand(model: model)
             }
@@ -46,6 +53,23 @@ struct CutBarApp: App {
         }
         .defaultSize(width: 560, height: 680)
         .windowResizability(.contentMinSize)
+
+        Window("About CutBar", id: "about") {
+            AboutView()
+        }
+        .defaultSize(width: 360, height: 320)
+        .windowResizability(.contentSize)
+    }
+}
+
+private struct AboutCommand: View {
+    @Environment(\.openWindow) private var openWindow
+
+    var body: some View {
+        Button("About CutBar") {
+            openWindow(id: "about")
+            NSApp.activate(ignoringOtherApps: true)
+        }
     }
 }
 

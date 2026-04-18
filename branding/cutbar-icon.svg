@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-labelledby="cutbar-icon-title cutbar-icon-desc">
+  <title id="cutbar-icon-title">CutBar</title>
+  <desc id="cutbar-icon-desc">A stylized fork whose three tines rise in height, doubling as an ascending bar chart.</desc>
+
+  <rect x="14" y="18" width="8" height="12" rx="1.6" fill="#3d755d"/>
+  <rect x="28" y="12" width="8" height="18" rx="1.6" fill="#3d755d"/>
+  <rect x="42" y="6"  width="8" height="24" rx="1.6" fill="#3d755d"/>
+
+  <rect x="12" y="28" width="40" height="5"  rx="1.6" fill="#2f312d"/>
+  <rect x="27" y="33" width="10" height="24" rx="3"   fill="#2f312d"/>
+</svg>
