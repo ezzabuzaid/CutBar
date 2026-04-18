@@ -8,6 +8,20 @@ TEAM_ID="${TEAM_ID:-WM5KTF36L4}"
 NOTARY_PROFILE="${NOTARY_PROFILE:-CutBar}"
 SIGNING_IDENTITY="${SIGNING_IDENTITY:-Developer ID Application: IZZIDDEN ABU-ZAID (${TEAM_ID})}"
 VERSION="${1:-1.0.0}"
+APPCAST_FEED_URL="${APPCAST_FEED_URL:-https://github.com/ezzabuzaid/CutBar/releases/latest/download/appcast.xml}"
+
+# Sparkle EdDSA signing.
+#   SPARKLE_ED_PUBLIC_KEY: base64 ed25519 public key injected into Info.plist
+#     (required for stable releases so shipped binaries can verify appcasts).
+#   SPARKLE_ED_KEY_FILE:   optional path to private key file. If unset, sign_update
+#                          reads the key from the local keychain (local dev).
+SPARKLE_ED_PUBLIC_KEY="${SPARKLE_ED_PUBLIC_KEY:-}"
+SPARKLE_ED_KEY_FILE="${SPARKLE_ED_KEY_FILE:-}"
+
+IS_PRERELEASE=false
+if [[ "$VERSION" == *-* ]]; then
+  IS_PRERELEASE=true
+fi
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PACKAGE_DIR="$ROOT_DIR"
@@ -146,9 +160,30 @@ cat >"$INFO_PLIST" <<PLIST
   <string>NSApplication</string>
   <key>NSHumanReadableCopyright</key>
   <string>© $(date +%Y) Ezz Abu-Zaid</string>
+  <key>SUFeedURL</key>
+  <string>$APPCAST_FEED_URL</string>
+  <key>SUEnableAutomaticChecks</key>
+  <true/>
+  <key>SUScheduledCheckInterval</key>
+  <integer>86400</integer>
+  <key>SUAutomaticallyUpdate</key>
+  <false/>$(
+  if [[ -n "$SPARKLE_ED_PUBLIC_KEY" ]]; then
+    printf '\n  <key>SUPublicEDKey</key>\n  <string>%s</string>' "$SPARKLE_ED_PUBLIC_KEY"
+  fi
+)
 </dict>
 </plist>
 PLIST
+
+if [[ -z "$SPARKLE_ED_PUBLIC_KEY" ]]; then
+  if [[ "$IS_PRERELEASE" == "true" ]]; then
+    say "WARNING: SPARKLE_ED_PUBLIC_KEY unset — shipping $VERSION without appcast verification (pre-release only)."
+  else
+    printf "Missing SPARKLE_ED_PUBLIC_KEY for stable release %s. Set it or generate a keypair first.\n" "$VERSION" >&2
+    exit 1
+  fi
+fi
 
 cat >"$ENTITLEMENTS" <<EOF
 <?xml version="1.0" encoding="UTF-8"?>
@@ -291,6 +326,34 @@ xcrun stapler validate "$DMG_PATH"
 
 say "Final verification"
 spctl -a -vvv --type execute "$APP_BUNDLE"
+
+if [[ "$IS_PRERELEASE" == "false" ]]; then
+  say "Signing DMG with Sparkle EdDSA for appcast"
+  SIGN_UPDATE_BIN=""
+  for candidate in \
+    "${SPARKLE_BIN_DIR:-}/sign_update" \
+    "$ROOT_DIR/.build/artifacts/sparkle/Sparkle/bin/sign_update" \
+    "$(command -v sign_update 2>/dev/null || true)"; do
+    if [[ -n "$candidate" && -x "$candidate" ]]; then
+      SIGN_UPDATE_BIN="$candidate"
+      break
+    fi
+  done
+
+  if [[ -z "$SIGN_UPDATE_BIN" ]]; then
+    printf "Missing 'sign_update' binary. Install via 'brew install --cask sparkle' or set SPARKLE_BIN_DIR.\n" >&2
+    exit 1
+  fi
+
+  if [[ -n "$SPARKLE_ED_KEY_FILE" ]]; then
+    SIG_LINE="$("$SIGN_UPDATE_BIN" -f "$SPARKLE_ED_KEY_FILE" "$DMG_PATH")"
+  else
+    SIG_LINE="$("$SIGN_UPDATE_BIN" "$DMG_PATH")"
+  fi
+
+  printf "%s\n" "$SIG_LINE" > "${DMG_PATH}.ed"
+  say "Wrote appcast signature sidecar: ${DMG_PATH}.ed"
+fi
 
 say "Done: $DMG_PATH"
 ls -lh "$DMG_PATH"
