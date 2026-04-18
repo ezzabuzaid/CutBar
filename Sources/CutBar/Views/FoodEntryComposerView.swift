@@ -17,7 +17,7 @@ struct FoodEntryComposerView: View {
                         }
                     }
 
-                    TextField("Source", text: $draft.source)
+                    TextField("Restaurant name", text: $draft.source)
                 }
 
                 Section("Macros") {

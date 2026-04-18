@@ -4,8 +4,6 @@ import SwiftUI
 struct DashboardView: View {
     @Bindable var model: CutBarModel
 
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
@@ -21,7 +19,7 @@ struct DashboardView: View {
             }
             .padding(20)
         }
-        .frame(minWidth: 460, minHeight: 720)
+        .frame(minWidth: 460, minHeight: 560)
         .background(Color.themeSurface)
         .sheet(isPresented: draftPresented) {
             if let draft = Binding($model.activeDraft) {
@@ -129,7 +127,8 @@ struct DashboardView: View {
             }
 
             ProgressView(value: progress)
-                .animation(reduceMotion ? nil : .default, value: progress)
+                .progressViewStyle(.linear)
+                .tint(Color.themeAccent)
         }
     }
 
@@ -152,10 +151,9 @@ struct DashboardView: View {
     private func storageIssueBanner(_ storageIssue: String) -> some View {
         Label(storageIssue, systemImage: "exclamationmark.triangle.fill")
             .font(.appSubheadline)
-            .foregroundStyle(.orange)
+            .foregroundStyle(Color.themeWarningForeground)
             .padding(16)
-            .background(Color.yellow.opacity(0.15), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+            .background(Color.themeWarningBackground, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
             .accessibilityLabel("Storage issue: \(storageIssue)")
     }
 }
-

@@ -4,9 +4,9 @@ set -euo pipefail
 APP_NAME="CutBar"
 BUNDLE_ID="com.ezz.study.CutBar"
 MIN_SYSTEM_VERSION="14.0"
-TEAM_ID="WM5KTF36L4"
-NOTARY_PROFILE="CutBar"
-SIGNING_IDENTITY="Developer ID Application: IZZIDDEN ABU-ZAID (${TEAM_ID})"
+TEAM_ID="${TEAM_ID:-WM5KTF36L4}"
+NOTARY_PROFILE="${NOTARY_PROFILE:-CutBar}"
+SIGNING_IDENTITY="${SIGNING_IDENTITY:-Developer ID Application: IZZIDDEN ABU-ZAID (${TEAM_ID})}"
 VERSION="${1:-1.0.0}"
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -24,6 +24,35 @@ DMG_PATH="$DIST_DIR/${APP_NAME}-${VERSION}.dmg"
 say() { printf "\n==> %s\n" "$*"; }
 
 pkill -x "$APP_NAME" >/dev/null 2>&1 || true
+
+legacy_secrets=()
+while IFS= read -r -d '' legacy_secret; do
+  legacy_secrets+=("$legacy_secret")
+done < <(
+  find "$ROOT_DIR" -type f \
+    \( -name "DeveloperID.key" -o -name "DeveloperID.p12" \) \
+    -print0
+)
+
+if ((${#legacy_secrets[@]} > 0)); then
+  printf "Refusing to run while sensitive export exists in repo tree:\n" >&2
+  for legacy_secret in "${legacy_secrets[@]}"; do
+    printf "  - %s\n" "$legacy_secret" >&2
+  done
+  printf "Import certs into login keychain and delete exported key/p12 files first.\n" >&2
+  exit 1
+fi
+
+say "Validating notary profile '$NOTARY_PROFILE'"
+if ! notary_history_output="$(
+  xcrun notarytool history --keychain-profile "$NOTARY_PROFILE" 2>&1
+)"; then
+  printf "Unable to validate notarytool profile '%s'.\n" "$NOTARY_PROFILE" >&2
+  printf "notarytool output:\n%s\n" "$notary_history_output" >&2
+  printf "If the profile is missing, run:\n" >&2
+  printf "  xcrun notarytool store-credentials '%s' --apple-id <apple-id> --team-id '%s' --password <app-specific-password>\n" "$NOTARY_PROFILE" "$TEAM_ID" >&2
+  exit 1
+fi
 
 say "Building Release (universal arm64 + x86_64)"
 swift build -c release --disable-sandbox --package-path "$PACKAGE_DIR" \
@@ -116,12 +145,7 @@ for bundle in "$APP_RESOURCES"/*.bundle; do
   codesign --force --sign "$SIGNING_IDENTITY" --timestamp --options runtime "$bundle"
 done
 
-say "Signing app binary + bundle (hardened runtime, timestamp)"
-codesign --force --sign "$SIGNING_IDENTITY" \
-  --entitlements "$ENTITLEMENTS" \
-  --options runtime --timestamp \
-  "$APP_BINARY"
-
+say "Signing app bundle (hardened runtime, timestamp)"
 codesign --force --sign "$SIGNING_IDENTITY" \
   --entitlements "$ENTITLEMENTS" \
   --options runtime --timestamp \

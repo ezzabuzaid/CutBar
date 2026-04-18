@@ -13,23 +13,68 @@ enum Theme {
     static let darkContrast: CGFloat = 0.05
 
     static let accent = NSColor(name: "cutbarAccent") { appearance in
-        appearance.bestMatch(from: [.darkAqua, .vibrantDark]) != nil ? darkAccent : lightAccent
+        isDarkAppearance(appearance) ? darkAccent : lightAccent
     }
 
     static let ink = NSColor(name: "cutbarInk") { appearance in
-        appearance.bestMatch(from: [.darkAqua, .vibrantDark]) != nil ? darkInk : lightInk
+        isDarkAppearance(appearance) ? darkInk : lightInk
     }
 
     static let surface = NSColor(name: "cutbarSurface") { appearance in
-        appearance.bestMatch(from: [.darkAqua, .vibrantDark]) != nil ? darkSurface : lightSurface
+        isDarkAppearance(appearance) ? darkSurface : lightSurface
     }
 
     static let card = NSColor(name: "cutbarCard") { appearance in
-        if appearance.bestMatch(from: [.darkAqua, .vibrantDark]) != nil {
+        if isDarkAppearance(appearance) {
             return darkSurface.blended(withFraction: darkContrast, of: darkInk) ?? darkSurface
         } else {
             return lightSurface.blended(withFraction: lightContrast, of: lightInk) ?? lightSurface
         }
+    }
+
+    static let hover = NSColor(name: "cutbarHover") { appearance in
+        let isHighContrast = isHighContrastAppearance(appearance)
+        let alpha: CGFloat
+        if isHighContrast {
+            alpha = isDarkAppearance(appearance) ? 0.18 : 0.14
+        } else {
+            alpha = isDarkAppearance(appearance) ? 0.12 : 0.08
+        }
+        let base = isDarkAppearance(appearance) ? darkInk : lightInk
+        return base.withAlphaComponent(alpha)
+    }
+
+    static let warningForeground = NSColor(name: "cutbarWarningForeground") { appearance in
+        if isDarkAppearance(appearance) {
+            return isHighContrastAppearance(appearance) ? .systemYellow : NSColor(hex: 0xf5e279)
+        } else {
+            return isHighContrastAppearance(appearance) ? .systemOrange : NSColor(hex: 0x8a4f00)
+        }
+    }
+
+    static let warningBackground = NSColor(name: "cutbarWarningBackground") { appearance in
+        let base: NSColor = isDarkAppearance(appearance) ? .systemYellow : .systemOrange
+        let alpha: CGFloat = isHighContrastAppearance(appearance) ? 0.30 : 0.18
+        return base.withAlphaComponent(alpha)
+    }
+
+    private static func isDarkAppearance(_ appearance: NSAppearance) -> Bool {
+        appearance.bestMatch(
+            from: [
+                .accessibilityHighContrastDarkAqua,
+                .darkAqua,
+                .vibrantDark,
+            ]
+        ) != nil
+    }
+
+    private static func isHighContrastAppearance(_ appearance: NSAppearance) -> Bool {
+        appearance.bestMatch(
+            from: [
+                .accessibilityHighContrastAqua,
+                .accessibilityHighContrastDarkAqua,
+            ]
+        ) != nil
     }
 }
 
@@ -38,6 +83,9 @@ extension Color {
     static let themeInk = Color(nsColor: Theme.ink)
     static let themeSurface = Color(nsColor: Theme.surface)
     static let themeCard = Color(nsColor: Theme.card)
+    static let themeHover = Color(nsColor: Theme.hover)
+    static let themeWarningForeground = Color(nsColor: Theme.warningForeground)
+    static let themeWarningBackground = Color(nsColor: Theme.warningBackground)
 }
 
 private extension NSColor {

@@ -23,7 +23,6 @@ struct MealHistoryView: View {
         }
         .frame(minWidth: 520, minHeight: 560)
         .background(Color.themeSurface)
-        .navigationTitle("Meal History")
     }
 
     private var header: some View {
@@ -79,16 +78,33 @@ private struct DayHistoryCard: View {
 
             Divider()
 
-            VStack(spacing: 6) {
-                ForEach(day.sortedEntries) { entry in
-                    HistoryEntryRow(entry: entry) {
-                        onDelete(entry)
+            VStack(alignment: .leading, spacing: 12) {
+                ForEach([MealSlot.meal1, .shake, .meal2], id: \.self) { slot in
+                    let entries = day.entries(for: slot)
+                    if !entries.isEmpty {
+                        historySection(slot: slot, entries: entries)
                     }
                 }
             }
         }
         .padding(16)
         .background(Color.themeCard, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+    }
+
+    private func historySection(slot: MealSlot, entries: [FoodEntry]) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(slot.shortTitle)
+                .font(.appCaption)
+                .foregroundStyle(.secondary)
+
+            VStack(spacing: 6) {
+                ForEach(entries) { entry in
+                    HistoryEntryRow(entry: entry) {
+                        onDelete(entry)
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -134,7 +150,7 @@ private struct HistoryEntryRow: View {
         .contentShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
         .background(
             RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .fill(isHovered ? Color.primary.opacity(0.05) : Color.clear)
+                .fill(isHovered ? Color.themeHover : Color.clear)
         )
         .onHover { isHovered = $0 }
         .contextMenu {
@@ -146,8 +162,8 @@ private struct HistoryEntryRow: View {
         }
         .alert("Delete \(entry.title)?", isPresented: $confirmingDelete) {
             Button("Delete", role: .destructive, action: onDelete)
-                .keyboardShortcut(.defaultAction)
             Button("Cancel", role: .cancel) { }
+                .keyboardShortcut(.defaultAction)
         } message: {
             Text("This entry will be removed from \(CutBarFormatters.displayDay(for: CutBarFormatters.dayKey(for: entry.loggedAt))). This cannot be undone.")
         }

@@ -117,7 +117,7 @@ struct MenuBarPanelView: View {
                 } label: {
                     Label("New Entry", systemImage: "plus")
                         .labelStyle(.titleAndIcon)
-                        .font(.body(11, weight: .medium))
+                        .font(.appBodyFont(11, weight: .medium))
                 }
                 .buttonStyle(.borderedProminent)
                 .controlSize(.small)
@@ -161,7 +161,10 @@ struct MenuBarPanelView: View {
                     .foregroundStyle(.secondary)
             } else {
                 ForEach(Array(model.todayEntries.suffix(3).reversed())) { entry in
-                    RecentEntryRow(entry: entry) {
+                    RecentEntryRow(
+                        entry: entry,
+                        onSelect: openDashboard
+                    ) {
                         model.delete(entry)
                     }
                 }
@@ -184,7 +187,6 @@ struct MenuBarPanelView: View {
                 model.refreshClock()
             }
             .accessibilityLabel("Refresh totals")
-            .keyboardShortcut("r", modifiers: .command)
 
             footerRow("Quit", systemImage: "power") {
                 NSApplication.shared.terminate(nil)
@@ -218,6 +220,7 @@ struct MenuBarPanelView: View {
             }
 
             ProgressView(value: progress)
+                .progressViewStyle(.linear)
                 .tint(Color.themeAccent)
         }
     }
@@ -230,9 +233,9 @@ struct MenuBarPanelView: View {
     private func storageIssueBanner(_ storageIssue: String) -> some View {
         Label(storageIssue, systemImage: "exclamationmark.triangle.fill")
             .font(.appFootnote)
-            .foregroundStyle(.orange)
+            .foregroundStyle(Color.themeWarningForeground)
             .padding(12)
-            .background(Color.yellow.opacity(0.15), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .background(Color.themeWarningBackground, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
             .accessibilityLabel("Storage issue: \(storageIssue)")
     }
 }
@@ -257,7 +260,7 @@ private struct FooterRowButton: View {
             .padding(.vertical, 6)
             .background(
                 RoundedRectangle(cornerRadius: 6, style: .continuous)
-                    .fill(isHovered ? Color.primary.opacity(0.08) : Color.clear)
+                    .fill(isHovered ? Color.themeHover : Color.clear)
             )
         }
         .buttonStyle(.plain)
@@ -267,34 +270,39 @@ private struct FooterRowButton: View {
 
 private struct RecentEntryRow: View {
     let entry: FoodEntry
+    let onSelect: () -> Void
     let onDelete: () -> Void
 
     @State private var isHovered = false
 
     var body: some View {
-        HStack(alignment: .top) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(entry.title)
-                    .font(.appSubheadlineMedium)
-                Text("\(entry.mealSlot.shortTitle) at \(CutBarFormatters.time.string(from: entry.loggedAt))")
-                    .font(.appCaption)
+        Button(action: onSelect) {
+            HStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(entry.title)
+                        .font(.appSubheadlineMedium)
+                    Text("\(entry.source) · \(entry.mealSlot.shortTitle) at \(CutBarFormatters.time.string(from: entry.loggedAt))")
+                        .font(.appCaption)
+                        .foregroundStyle(.secondary)
+                }
+
+                Spacer()
+
+                Text("\(entry.proteinGrams)g / \(entry.calories) kcal")
+                    .font(.appCaption.monospacedDigit())
                     .foregroundStyle(.secondary)
             }
-
-            Spacer()
-
-            Text("\(entry.proteinGrams)g / \(entry.calories) kcal")
-                .font(.appCaption.monospacedDigit())
-                .foregroundStyle(.secondary)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 6)
+            .contentShape(Rectangle())
         }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 6)
-        .contentShape(Rectangle())
+        .buttonStyle(.plain)
         .background(
             RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .fill(isHovered ? Color.primary.opacity(0.06) : Color.clear)
+                .fill(isHovered ? Color.themeHover : Color.clear)
         )
         .onHover { isHovered = $0 }
+        .accessibilityHint("Opens the dashboard")
         .contextMenu {
             Button(role: .destructive, action: onDelete) {
                 Label("Delete", systemImage: "trash")

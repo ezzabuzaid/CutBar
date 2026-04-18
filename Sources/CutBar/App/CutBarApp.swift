@@ -18,14 +18,14 @@ struct CutBarApp: App {
         MenuBarExtra(model.menuBarTitle, systemImage: model.currentPhase.systemImage) {
             MenuBarPanelView(model: model)
                 .tint(Color.themeAccent)
-                .foregroundStyle(Color.themeInk)
+                .foregroundColor(Color.themeInk)
         }
         .menuBarExtraStyle(.window)
 
         Window("CutBar Dashboard", id: "dashboard") {
             DashboardView(model: model)
                 .tint(Color.themeAccent)
-                .foregroundStyle(Color.themeInk)
+                .foregroundColor(Color.themeInk)
         }
         .defaultSize(width: 500, height: 760)
         .windowResizability(.contentMinSize)
@@ -42,7 +42,7 @@ struct CutBarApp: App {
         Window("Meal History", id: "history") {
             MealHistoryView(model: model)
                 .tint(Color.themeAccent)
-                .foregroundStyle(Color.themeInk)
+                .foregroundColor(Color.themeInk)
         }
         .defaultSize(width: 560, height: 680)
         .windowResizability(.contentMinSize)

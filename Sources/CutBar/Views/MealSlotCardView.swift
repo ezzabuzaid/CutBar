@@ -5,8 +5,6 @@ struct MealSlotCardView: View {
     @Bindable var model: CutBarModel
     let slot: MealSlot
 
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-
     var body: some View {
         let target = model.plan.target(for: slot)
         let summary = model.slotSummary(for: slot)
@@ -37,12 +35,14 @@ struct MealSlotCardView: View {
             ProgressView(value: proteinProgress) {
                 Text("Protein progress")
             }
-            .animation(reduceMotion ? nil : .default, value: proteinProgress)
+            .progressViewStyle(.linear)
+            .tint(Color.themeAccent)
 
             ProgressView(value: calorieProgress) {
                 Text("Calorie progress")
             }
-            .animation(reduceMotion ? nil : .default, value: calorieProgress)
+            .progressViewStyle(.linear)
+            .tint(Color.themeAccent)
 
             if !model.presets(for: slot).isEmpty {
                 VStack(alignment: .leading, spacing: 8) {
@@ -171,7 +171,7 @@ private struct LoggedEntryRowView: View {
         )
         .overlay(
             RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(isHovered ? Color.primary.opacity(0.04) : Color.clear)
+                .fill(isHovered ? Color.themeHover : Color.clear)
         )
         .contentShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         .onHover { isHovered = $0 }
@@ -185,8 +185,8 @@ private struct LoggedEntryRowView: View {
         }
         .alert("Delete \(entry.title)?", isPresented: $confirmingDelete) {
             Button("Delete", role: .destructive, action: onDelete)
-                .keyboardShortcut(.defaultAction)
             Button("Cancel", role: .cancel) { }
+                .keyboardShortcut(.defaultAction)
         } message: {
             Text("This entry will be removed from today's log. This cannot be undone.")
         }
