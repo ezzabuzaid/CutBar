@@ -237,7 +237,12 @@ if [[ -f "$VOLUME_ICON_SRC" ]]; then
 fi
 
 if [[ -f "$DMG_BG_SRC" ]]; then
-  osascript <<APPLESCRIPT
+  # Nudge Finder awake so it registers the freshly-mounted volume. On CI
+  # runners Finder is often cold; give it a moment before scripting it.
+  osascript -e 'tell application "Finder" to activate' >/dev/null 2>&1 || true
+  sleep 3
+
+  if ! osascript <<APPLESCRIPT
 tell application "Finder"
   tell disk "$VOL_NAME"
     open
@@ -261,6 +266,9 @@ tell application "Finder"
   end tell
 end tell
 APPLESCRIPT
+  then
+    printf "\n!! Finder styling failed; shipping layout-only DMG (background art still embedded at .background/background.png).\n" >&2
+  fi
 fi
 
 sync
