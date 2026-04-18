@@ -280,12 +280,6 @@ cat >"$ENTITLEMENTS" <<EOF
 </plist>
 EOF
 
-say "Signing nested frameworks"
-for framework in "$APP_FRAMEWORKS"/*.framework; do
-  [ -d "$framework" ] || continue
-  codesign --force --sign "$SIGNING_IDENTITY" --timestamp --options runtime "$framework"
-done
-
 say "Signing nested bundles"
 for bundle in "$APP_RESOURCES"/*.bundle; do
   [ -d "$bundle" ] || continue
