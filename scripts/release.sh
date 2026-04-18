@@ -280,6 +280,14 @@ cat >"$ENTITLEMENTS" <<EOF
 </plist>
 EOF
 
+say "Signing nested frameworks"
+for framework in "$APP_FRAMEWORKS"/*.framework; do
+  [ -d "$framework" ] || continue
+  # Sparkle embeds nested helpers (.app/.xpc) that must carry our
+  # Developer ID signature with secure timestamps for notarization.
+  codesign --force --deep --sign "$SIGNING_IDENTITY" --timestamp --options runtime "$framework"
+done
+
 say "Signing nested bundles"
 for bundle in "$APP_RESOURCES"/*.bundle; do
   [ -d "$bundle" ] || continue
