@@ -1,5 +1,10 @@
 # CutBar
 
+[![Release](https://img.shields.io/github/v/release/ezzabuzaid/CutBar?include_prereleases&sort=semver)](https://github.com/ezzabuzaid/CutBar/releases)
+[![Release On Tag](https://github.com/ezzabuzaid/CutBar/actions/workflows/release-on-tag.yml/badge.svg)](https://github.com/ezzabuzaid/CutBar/actions/workflows/release-on-tag.yml)
+[![Platform](https://img.shields.io/badge/platform-macOS%2014%2B-2f312d)](https://www.apple.com/macos)
+[![Swift](https://img.shields.io/badge/swift-6-3d755d)](https://swift.org)
+
 CutBar is a standalone macOS menu bar app (Swift Package) for logging meals and tracking daily protein/calorie progress.
 
 ## What It Does

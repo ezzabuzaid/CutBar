@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 640" width="1280" height="640" role="img" aria-labelledby="cutbar-social-title">
+  <title id="cutbar-social-title">CutBar — macOS menu bar meal &amp; protein tracker</title>
+
+  <rect width="1280" height="640" fill="#f5f3ed"/>
+
+  <g transform="translate(0 26)">
+    <circle cx="1180" cy="80" r="4" fill="#3d755d" opacity="0.35"/>
+    <circle cx="1210" cy="80" r="4" fill="#e4f222" opacity="0.6"/>
+    <circle cx="1240" cy="80" r="4" fill="#2f312d" opacity="0.25"/>
+  </g>
+
+  <g transform="translate(280 200) scale(2.6)">
+    <g transform="translate(8 8)">
+      <rect x="14" y="18" width="8" height="12" rx="1.6" fill="#3d755d"/>
+      <rect x="28" y="12" width="8" height="18" rx="1.6" fill="#3d755d"/>
+      <rect x="42" y="6"  width="8" height="24" rx="1.6" fill="#3d755d"/>
+      <rect x="12" y="28" width="40" height="5"  rx="1.6" fill="#2f312d"/>
+      <rect x="27" y="33" width="10" height="24" rx="3"   fill="#2f312d"/>
+    </g>
+    <text x="92" y="52" font-family="-apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="40" font-weight="700" letter-spacing="-1">
+      <tspan fill="#2f312d">Cut</tspan><tspan fill="#3d755d">Bar</tspan>
+    </text>
+  </g>
+
+  <text x="640" y="470" text-anchor="middle"
+        font-family="-apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif"
+        font-size="34" font-weight="500" letter-spacing="-0.5" fill="#2f312d" opacity="0.78">
+    macOS menu bar meal &amp; protein tracker
+  </text>
+
+  <text x="1240" y="604" text-anchor="end"
+        font-family="-apple-system, BlinkMacSystemFont, 'SF Mono', Menlo, monospace"
+        font-size="20" font-weight="500" letter-spacing="0.3" fill="#2f312d" opacity="0.5">
+    github.com/ezzabuzaid/CutBar
+  </text>
+
+  <rect x="40" y="40" width="60" height="4" rx="2" fill="#3d755d"/>
+</svg>
