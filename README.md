@@ -14,6 +14,23 @@ CutBar is a standalone macOS menu bar app (Swift Package) for logging meals and 
 - macOS 14+
 - Xcode with Swift 6 toolchain
 
+## Install
+
+### Option 1: Install from GitHub Release (Recommended)
+
+1. Open the project releases page on GitHub.
+2. Download the latest `CutBar-<version>.dmg`.
+3. Open the DMG and drag `CutBar.app` to `Applications`.
+4. Launch `CutBar.app`.
+
+### Option 2: Run from Source
+
+```bash
+git clone <repo-url>
+cd CutBar
+./scripts/build_and_run.sh
+```
+
 ## Quick Start
 
 Run the app:
