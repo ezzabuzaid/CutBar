@@ -1,0 +1,8 @@
+.build/
+.tmp-swift-cache/
+dist/
+tmp/
+.DS_Store
+*.log
+.swiftpm/
+Package.resolved
