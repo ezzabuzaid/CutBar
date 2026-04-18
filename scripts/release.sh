@@ -4,6 +4,9 @@ set -euo pipefail
 APP_NAME="CutBar"
 BUNDLE_ID="com.ezz.study.CutBar"
 MIN_SYSTEM_VERSION="14.0"
+RELEASE_MODE="${RELEASE_MODE:-full}" # full | package-only
+RELEASE_ARCHS="${RELEASE_ARCHS:-arm64 x86_64}"
+RELEASE_BUILD_BIN_PATH="${RELEASE_BUILD_BIN_PATH:-}"
 TEAM_ID="${TEAM_ID:-WM5KTF36L4}"
 NOTARY_PROFILE="${NOTARY_PROFILE:-CutBar}"
 SIGNING_IDENTITY="${SIGNING_IDENTITY:-Developer ID Application: IZZIDDEN ABU-ZAID (${TEAM_ID})}"
@@ -30,6 +33,7 @@ APP_BUNDLE="$DIST_DIR/$APP_NAME.app"
 APP_CONTENTS="$APP_BUNDLE/Contents"
 APP_MACOS="$APP_CONTENTS/MacOS"
 APP_RESOURCES="$APP_CONTENTS/Resources"
+APP_FRAMEWORKS="$APP_CONTENTS/Frameworks"
 APP_BINARY="$APP_MACOS/$APP_NAME"
 INFO_PLIST="$APP_CONTENTS/Info.plist"
 ENTITLEMENTS="$DIST_DIR/CutBar.entitlements"
@@ -41,6 +45,42 @@ DMG_BG_SRC="$BRAND_GEN_DIR/dmg/background.png"
 DMG_BG_SRC_2X="$BRAND_GEN_DIR/dmg/background@2x.png"
 
 say() { printf "\n==> %s\n" "$*"; }
+
+if [[ "$RELEASE_MODE" != "full" && "$RELEASE_MODE" != "package-only" ]]; then
+  printf "Invalid RELEASE_MODE '%s'. Expected 'full' or 'package-only'.\n" "$RELEASE_MODE" >&2
+  exit 1
+fi
+
+ensure_framework_rpath() {
+  if ! /usr/bin/otool -l "$APP_BINARY" | grep -q "@executable_path/../Frameworks"; then
+    /usr/bin/install_name_tool -add_rpath "@executable_path/../Frameworks" "$APP_BINARY"
+  fi
+}
+
+verify_embedded_rpath_frameworks() {
+  local missing=0
+  local dependency
+
+  while IFS= read -r dependency; do
+    [[ -z "$dependency" ]] && continue
+
+    local framework_name
+    framework_name="$(basename "${dependency%%/Versions/*}")"
+    if [[ ! -d "$APP_FRAMEWORKS/$framework_name" ]]; then
+      printf "Missing embedded framework for runtime dependency '%s' (expected at %s).\n" "$dependency" "$APP_FRAMEWORKS/$framework_name" >&2
+      missing=1
+    fi
+  done < <(/usr/bin/otool -L "$APP_BINARY" | awk '/@rpath\/.*\.framework\// {print $1}')
+
+  if ! /usr/bin/otool -l "$APP_BINARY" | grep -q "@executable_path/../Frameworks"; then
+    printf "Missing LC_RPATH entry '@executable_path/../Frameworks' in %s.\n" "$APP_BINARY" >&2
+    missing=1
+  fi
+
+  if [[ "$missing" -ne 0 ]]; then
+    exit 1
+  fi
+}
 
 pkill -x "$APP_NAME" >/dev/null 2>&1 || true
 
@@ -62,15 +102,19 @@ if ((${#legacy_secrets[@]} > 0)); then
   exit 1
 fi
 
-say "Validating notary profile '$NOTARY_PROFILE'"
-if ! notary_history_output="$(
-  xcrun notarytool history --keychain-profile "$NOTARY_PROFILE" 2>&1
-)"; then
-  printf "Unable to validate notarytool profile '%s'.\n" "$NOTARY_PROFILE" >&2
-  printf "notarytool output:\n%s\n" "$notary_history_output" >&2
-  printf "If the profile is missing, run:\n" >&2
-  printf "  xcrun notarytool store-credentials '%s' --apple-id <apple-id> --team-id '%s' --password <app-specific-password>\n" "$NOTARY_PROFILE" "$TEAM_ID" >&2
-  exit 1
+if [[ "$RELEASE_MODE" == "full" ]]; then
+  say "Validating notary profile '$NOTARY_PROFILE'"
+  if ! notary_history_output="$(
+    xcrun notarytool history --keychain-profile "$NOTARY_PROFILE" 2>&1
+  )"; then
+    printf "Unable to validate notarytool profile '%s'.\n" "$NOTARY_PROFILE" >&2
+    printf "notarytool output:\n%s\n" "$notary_history_output" >&2
+    printf "If the profile is missing, run:\n" >&2
+    printf "  xcrun notarytool store-credentials '%s' --apple-id <apple-id> --team-id '%s' --password <app-specific-password>\n" "$NOTARY_PROFILE" "$TEAM_ID" >&2
+    exit 1
+  fi
+else
+  say "Running in package-only mode (build + bundle validation, no signing/notarization/DMG)."
 fi
 
 say "Generating brand assets from branding/*.svg"
@@ -81,18 +125,49 @@ if [[ ! -f "$APP_ICON_SRC" ]]; then
   exit 1
 fi
 
-say "Building Release (universal arm64 + x86_64)"
-swift build -c release --disable-sandbox --package-path "$PACKAGE_DIR" \
-  --arch arm64 --arch x86_64
-BUILD_BIN_PATH="$(swift build -c release --disable-sandbox --package-path "$PACKAGE_DIR" --arch arm64 --arch x86_64 --show-bin-path)"
-BUILD_BINARY="$BUILD_BIN_PATH/$APP_NAME"
+if [[ -n "$RELEASE_BUILD_BIN_PATH" ]]; then
+  BUILD_BIN_PATH="$RELEASE_BUILD_BIN_PATH"
+  BUILD_BINARY="$BUILD_BIN_PATH/$APP_NAME"
+  say "Using prebuilt binaries from $BUILD_BIN_PATH"
+  if [[ ! -x "$BUILD_BINARY" ]]; then
+    printf "Expected executable %s does not exist when using RELEASE_BUILD_BIN_PATH.\n" "$BUILD_BINARY" >&2
+    exit 1
+  fi
+else
+  build_arch_args=()
+  for arch in $RELEASE_ARCHS; do
+    build_arch_args+=(--arch "$arch")
+  done
+
+  if [[ "${#build_arch_args[@]}" -eq 0 ]]; then
+    printf "RELEASE_ARCHS resolved to zero architectures.\n" >&2
+    exit 1
+  fi
+
+  say "Building Release (${RELEASE_ARCHS})"
+  swift build -c release --disable-sandbox --package-path "$PACKAGE_DIR" \
+    "${build_arch_args[@]}"
+  BUILD_BIN_PATH="$(
+    swift build -c release --disable-sandbox --package-path "$PACKAGE_DIR" \
+      "${build_arch_args[@]}" \
+      --show-bin-path
+  )"
+  BUILD_BINARY="$BUILD_BIN_PATH/$APP_NAME"
+fi
 
 say "Assembling app bundle at $APP_BUNDLE"
 rm -rf "$APP_BUNDLE"
-mkdir -p "$APP_MACOS" "$APP_RESOURCES"
+mkdir -p "$APP_MACOS" "$APP_RESOURCES" "$APP_FRAMEWORKS"
 cp "$BUILD_BINARY" "$APP_BINARY"
 chmod +x "$APP_BINARY"
 cp "$APP_ICON_SRC" "$APP_RESOURCES/AppIcon.icns"
+
+for framework in "$BUILD_BIN_PATH"/*.framework; do
+  [ -d "$framework" ] || continue
+  cp -R "$framework" "$APP_FRAMEWORKS/"
+done
+
+ensure_framework_rpath
 
 for bundle in "$BUILD_BIN_PATH"/*.bundle; do
   [ -d "$bundle" ] || continue
@@ -124,6 +199,8 @@ PLIST
     cp -R "$item" "$dest/Contents/Resources/"
   done
 done
+
+verify_embedded_rpath_frameworks
 
 cat >"$INFO_PLIST" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
@@ -185,6 +262,11 @@ if [[ -z "$SPARKLE_ED_PUBLIC_KEY" ]]; then
   fi
 fi
 
+if [[ "$RELEASE_MODE" == "package-only" ]]; then
+  say "Package-only build complete: $APP_BUNDLE"
+  exit 0
+fi
+
 cat >"$ENTITLEMENTS" <<EOF
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -197,6 +279,12 @@ cat >"$ENTITLEMENTS" <<EOF
 </dict>
 </plist>
 EOF
+
+say "Signing nested frameworks"
+for framework in "$APP_FRAMEWORKS"/*.framework; do
+  [ -d "$framework" ] || continue
+  codesign --force --sign "$SIGNING_IDENTITY" --timestamp --options runtime "$framework"
+done
 
 say "Signing nested bundles"
 for bundle in "$APP_RESOURCES"/*.bundle; do
