@@ -117,6 +117,9 @@ mkdir -p "$DMG_OUT_DIR"
 render_png "$DMG_BG_SRC" "$DMG_OUT_DIR/background.png"    660  400
 render_png "$DMG_BG_SRC" "$DMG_OUT_DIR/background@2x.png" 1320 800
 
+say "Release hero image"
+render_png "$LOCKUP_SRC" "$GEN_DIR/hero.png" 1280 320
+
 say "Done. Generated assets:"
 ls -1 "$GEN_DIR"
 ls -1 "$DMG_OUT_DIR"

@@ -185,10 +185,26 @@ jobs:
           name: cutbar-release-${{ needs.prepare.outputs.version }}
           path: dist
 
+      - name: Compute artifact checksums
+        id: checksums
+        shell: bash
+        env:
+          VERSION: ${{ needs.prepare.outputs.version }}
+        run: |
+          set -euo pipefail
+          DMG_SHA="$(shasum -a 256 "dist/CutBar-${VERSION}.dmg" | awk '{print $1}')"
+          ZIP_SHA="$(shasum -a 256 "dist/CutBar-${VERSION}.app.zip" | awk '{print $1}')"
+          echo "dmg_sha=$DMG_SHA" >> "$GITHUB_OUTPUT"
+          echo "zip_sha=$ZIP_SHA" >> "$GITHUB_OUTPUT"
+
       - name: Generate release notes from Conventional Commits
         shell: bash
         env:
           CURRENT_TAG: ${{ needs.prepare.outputs.tag_name }}
+          VERSION: ${{ needs.prepare.outputs.version }}
+          IS_PRERELEASE: ${{ needs.prepare.outputs.is_prerelease }}
+          DMG_SHA: ${{ steps.checksums.outputs.dmg_sha }}
+          ZIP_SHA: ${{ steps.checksums.outputs.zip_sha }}
         run: |
           set -euo pipefail
 
@@ -266,7 +282,15 @@ jobs:
             fi
           }
 
+          HERO_URL="https://raw.githubusercontent.com/${GITHUB_REPOSITORY}/${CURRENT_TAG}/branding/generated/hero.png"
+
           {
+            echo "<p align=\"center\">"
+            echo "  <img src=\"${HERO_URL}\" alt=\"CutBar\" width=\"480\" />"
+            echo "</p>"
+            echo
+            echo "> Quiet meal tracking that lives in your menu bar."
+            echo
             echo "## What Changed"
             echo
           } > release_notes.md
@@ -285,10 +309,39 @@ jobs:
           fi
 
           {
+            echo "## Install"
+            echo
+            echo "1. Download \`CutBar-${VERSION}.dmg\` below."
+            echo "2. Open the DMG and drag **CutBar** to your Applications folder."
+            echo "3. Launch from Spotlight or Applications — CutBar lives in your menu bar."
+            echo
+            echo "## System Requirements"
+            echo
+            echo "- macOS 14 Sonoma or later"
+            echo "- Apple Silicon or Intel (universal binary)"
+            echo
+            echo "## Verify Authenticity"
+            echo
+            echo "The app and DMG are signed with a Developer ID certificate and notarized by Apple."
+            echo
+            echo '```bash'
+            echo "# Verify Gatekeeper accepts the app"
+            echo "spctl -a -vvv /Applications/CutBar.app"
+            echo
+            echo "# Inspect the signature"
+            echo "codesign -dvv /Applications/CutBar.app"
+            echo
+            echo "# Confirm checksums (macOS)"
+            echo "shasum -a 256 ~/Downloads/CutBar-${VERSION}.dmg"
+            echo "shasum -a 256 ~/Downloads/CutBar-${VERSION}.app.zip"
+            echo '```'
+            echo
             echo "## Assets"
             echo
-            echo "- CutBar-${CURRENT_TAG#v}.dmg"
-            echo "- CutBar-${CURRENT_TAG#v}.app.zip"
+            echo "| File | SHA-256 |"
+            echo "| --- | --- |"
+            echo "| \`CutBar-${VERSION}.dmg\` | \`${DMG_SHA}\` |"
+            echo "| \`CutBar-${VERSION}.app.zip\` | \`${ZIP_SHA}\` |"
             echo
             if [[ -n "$PREVIOUS_TAG" ]]; then
               echo "## Full Changelog"
@@ -301,8 +354,10 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ needs.prepare.outputs.tag_name }}
+          name: CutBar ${{ needs.prepare.outputs.version }}
           body_path: release_notes.md
           prerelease: ${{ needs.prepare.outputs.is_prerelease == 'true' }}
+          make_latest: ${{ needs.prepare.outputs.is_prerelease == 'true' && 'false' || 'true' }}
           files: |
             dist/CutBar-${{ needs.prepare.outputs.version }}.dmg
             dist/CutBar-${{ needs.prepare.outputs.version }}.app.zip
