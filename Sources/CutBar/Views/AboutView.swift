@@ -1,6 +1,8 @@
 import SwiftUI
 
 struct AboutView: View {
+    @ObservedObject var updater: Updater
+
     private var versionString: String {
         let info = Bundle.main.infoDictionary
         let short = info?["CFBundleShortVersionString"] as? String ?? "dev"
@@ -11,6 +13,16 @@ struct AboutView: View {
     private var copyrightString: String {
         let info = Bundle.main.infoDictionary
         return info?["NSHumanReadableCopyright"] as? String ?? ""
+    }
+
+    private var statusCaption: String? {
+        switch updater.status {
+        case .idle: return nil
+        case .checking: return "Checking…"
+        case .upToDate: return "You're up to date."
+        case .updateAvailable: return "Update available — follow the prompt."
+        case let .failed(message): return "Check failed: \(message)"
+        }
     }
 
     var body: some View {
@@ -39,6 +51,20 @@ struct AboutView: View {
                 .font(.appSubheadlineMedium)
                 .tint(Color.themeAccent)
 
+            VStack(spacing: 6) {
+                Button("Check for Updates…") {
+                    updater.checkForUpdates()
+                }
+                .buttonStyle(.bordered)
+                .disabled(!updater.canCheckForUpdates)
+
+                if let statusCaption {
+                    Text(statusCaption)
+                        .font(.appCaption2)
+                        .foregroundStyle(Color.themeInk.opacity(0.5))
+                }
+            }
+
             if !copyrightString.isEmpty {
                 Text(copyrightString)
                     .font(.appCaption2)
@@ -47,7 +73,7 @@ struct AboutView: View {
         }
         .padding(.vertical, 36)
         .padding(.horizontal, 32)
-        .frame(minWidth: 360, minHeight: 320)
+        .frame(minWidth: 360, minHeight: 360)
         .background(Color.themeSurface)
     }
 }

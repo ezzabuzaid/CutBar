@@ -68,6 +68,7 @@ jobs:
     needs: prepare
     env:
       VERSION: ${{ needs.prepare.outputs.version }}
+      IS_PRERELEASE: ${{ needs.prepare.outputs.is_prerelease }}
       MACOS_CERT_P12_BASE64: ${{ secrets.MACOS_CERT_P12_BASE64 }}
       MACOS_CERT_PASSWORD: ${{ secrets.MACOS_CERT_PASSWORD }}
       APPLE_ID: ${{ secrets.APPLE_ID }}
@@ -75,6 +76,9 @@ jobs:
       APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
       NOTARY_PROFILE_SECRET: ${{ secrets.NOTARY_PROFILE }}
       SIGNING_IDENTITY_SECRET: ${{ secrets.SIGNING_IDENTITY }}
+      SPARKLE_ED_PUBLIC_KEY: ${{ secrets.SPARKLE_ED_PUBLIC_KEY }}
+      SPARKLE_ED_PRIVATE_KEY: ${{ secrets.SPARKLE_ED_PRIVATE_KEY }}
+      SPARKLE_VERSION: "2.6.4"
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
@@ -91,6 +95,13 @@ jobs:
             APPLE_APP_SPECIFIC_PASSWORD
             APPLE_TEAM_ID
           )
+
+          if [[ "$IS_PRERELEASE" != "true" ]]; then
+            required_secrets+=(
+              SPARKLE_ED_PUBLIC_KEY
+              SPARKLE_ED_PRIVATE_KEY
+            )
+          fi
 
           for secret_name in "${required_secrets[@]}"; do
             if [[ -z "${!secret_name:-}" ]]; then
@@ -123,6 +134,28 @@ jobs:
       - name: Install asset-generation toolchain
         shell: bash
         run: brew install librsvg
+
+      - name: Install Sparkle CLI tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          SPARKLE_DIR="$RUNNER_TEMP/sparkle"
+          mkdir -p "$SPARKLE_DIR"
+          curl -fsSL -o "$SPARKLE_DIR/sparkle.tar.xz" \
+            "https://github.com/sparkle-project/Sparkle/releases/download/${SPARKLE_VERSION}/Sparkle-${SPARKLE_VERSION}.tar.xz"
+          tar -xf "$SPARKLE_DIR/sparkle.tar.xz" -C "$SPARKLE_DIR"
+          test -x "$SPARKLE_DIR/bin/sign_update"
+          echo "SPARKLE_BIN_DIR=$SPARKLE_DIR/bin" >> "$GITHUB_ENV"
+
+      - name: Write Sparkle private key to file
+        if: ${{ needs.prepare.outputs.is_prerelease != 'true' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          KEY_FILE="$RUNNER_TEMP/sparkle-ed-private.key"
+          umask 077
+          printf "%s" "$SPARKLE_ED_PRIVATE_KEY" > "$KEY_FILE"
+          echo "SPARKLE_ED_KEY_FILE=$KEY_FILE" >> "$GITHUB_ENV"
 
       - name: Configure notarytool profile
         shell: bash
@@ -157,6 +190,9 @@ jobs:
 
           test -f "dist/CutBar-${VERSION}.dmg"
           test -f "dist/CutBar-${VERSION}.app.zip"
+          if [[ "$IS_PRERELEASE" != "true" ]]; then
+            test -f "dist/CutBar-${VERSION}.dmg.ed"
+          fi
 
       - name: Upload release artifacts
         uses: actions/upload-artifact@v4
@@ -165,7 +201,8 @@ jobs:
           path: |
             dist/CutBar-${{ needs.prepare.outputs.version }}.dmg
             dist/CutBar-${{ needs.prepare.outputs.version }}.app.zip
-          if-no-files-found: error
+            dist/CutBar-${{ needs.prepare.outputs.version }}.dmg.ed
+          if-no-files-found: warn
 
   publish_release:
     name: Publish GitHub Release
@@ -196,6 +233,89 @@ jobs:
           ZIP_SHA="$(shasum -a 256 "dist/CutBar-${VERSION}.app.zip" | awk '{print $1}')"
           echo "dmg_sha=$DMG_SHA" >> "$GITHUB_OUTPUT"
           echo "zip_sha=$ZIP_SHA" >> "$GITHUB_OUTPUT"
+
+      - name: Generate Sparkle appcast.xml
+        id: appcast
+        if: ${{ needs.prepare.outputs.is_prerelease != 'true' }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CURRENT_TAG: ${{ needs.prepare.outputs.tag_name }}
+          VERSION: ${{ needs.prepare.outputs.version }}
+          REPO: ${{ github.repository }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          APPCAST=appcast.xml
+          PUB_DATE="$(date -u '+%a, %d %b %Y %H:%M:%S +0000')"
+          CUR_SIG_LINE="$(cat "dist/CutBar-${VERSION}.dmg.ed")"
+          CUR_ENCL_URL="https://github.com/${REPO}/releases/download/${CURRENT_TAG}/CutBar-${VERSION}.dmg"
+          CUR_NOTES_URL="https://github.com/${REPO}/releases/tag/${CURRENT_TAG}"
+
+          {
+            printf '<?xml version="1.0" encoding="utf-8"?>\n'
+            printf '<rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle">\n'
+            printf '  <channel>\n'
+            printf '    <title>CutBar</title>\n'
+            printf '    <link>https://github.com/%s</link>\n' "$REPO"
+            printf '    <description>Quiet meal tracking for your menu bar.</description>\n'
+            printf '    <language>en</language>\n'
+            printf '    <item>\n'
+            printf '      <title>Version %s</title>\n' "$VERSION"
+            printf '      <pubDate>%s</pubDate>\n' "$PUB_DATE"
+            printf '      <sparkle:version>%s</sparkle:version>\n' "$VERSION"
+            printf '      <sparkle:shortVersionString>%s</sparkle:shortVersionString>\n' "$VERSION"
+            printf '      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>\n'
+            printf '      <sparkle:releaseNotesLink>%s</sparkle:releaseNotesLink>\n' "$CUR_NOTES_URL"
+            printf '      <enclosure url="%s" type="application/octet-stream" %s />\n' "$CUR_ENCL_URL" "$CUR_SIG_LINE"
+            printf '    </item>\n'
+          } > "$APPCAST"
+
+          # Historical entries: up to 10 prior stable releases that published a .ed sidecar.
+          mapfile -t PRIOR_TAGS < <(
+            gh release list --repo "$REPO" --exclude-drafts --exclude-pre-releases --limit 20 \
+              --json tagName -q '.[].tagName' \
+              | grep -Ev "^${CURRENT_TAG}\$" \
+              | head -n 10
+          )
+
+          for tag in "${PRIOR_TAGS[@]}"; do
+            [[ -n "$tag" ]] || continue
+            prior_ver="${tag#v}"
+            prior_dir="$RUNNER_TEMP/prior-$prior_ver"
+            mkdir -p "$prior_dir"
+
+            if ! gh release download "$tag" --repo "$REPO" --pattern "CutBar-${prior_ver}.dmg.ed" --dir "$prior_dir" >/dev/null 2>&1; then
+              echo "Skipping $tag: no .ed sidecar attached."
+              continue
+            fi
+
+            prior_sig="$(cat "$prior_dir/CutBar-${prior_ver}.dmg.ed")"
+            prior_pub="$(gh release view "$tag" --repo "$REPO" --json publishedAt -q '.publishedAt')"
+            prior_pub_fmt="$(date -u -j -f "%Y-%m-%dT%H:%M:%SZ" "$prior_pub" '+%a, %d %b %Y %H:%M:%S +0000' 2>/dev/null || echo "$PUB_DATE")"
+            prior_url="https://github.com/${REPO}/releases/download/${tag}/CutBar-${prior_ver}.dmg"
+            prior_notes="https://github.com/${REPO}/releases/tag/${tag}"
+
+            {
+              printf '    <item>\n'
+              printf '      <title>Version %s</title>\n' "$prior_ver"
+              printf '      <pubDate>%s</pubDate>\n' "$prior_pub_fmt"
+              printf '      <sparkle:version>%s</sparkle:version>\n' "$prior_ver"
+              printf '      <sparkle:shortVersionString>%s</sparkle:shortVersionString>\n' "$prior_ver"
+              printf '      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>\n'
+              printf '      <sparkle:releaseNotesLink>%s</sparkle:releaseNotesLink>\n' "$prior_notes"
+              printf '      <enclosure url="%s" type="application/octet-stream" %s />\n' "$prior_url" "$prior_sig"
+              printf '    </item>\n'
+            } >> "$APPCAST"
+          done
+
+          {
+            printf '  </channel>\n'
+            printf '</rss>\n'
+          } >> "$APPCAST"
+
+          mv "$APPCAST" "dist/$APPCAST"
+          echo "appcast_path=dist/$APPCAST" >> "$GITHUB_OUTPUT"
 
       - name: Generate release notes from Conventional Commits
         shell: bash
@@ -350,6 +470,25 @@ jobs:
             fi
           } >> release_notes.md
 
+      - name: Stage stable-only assets
+        id: stage_assets
+        shell: bash
+        env:
+          VERSION: ${{ needs.prepare.outputs.version }}
+          IS_PRERELEASE: ${{ needs.prepare.outputs.is_prerelease }}
+        run: |
+          set -euo pipefail
+          if [[ "$IS_PRERELEASE" == "true" ]]; then
+            echo "extra_files=" >> "$GITHUB_OUTPUT"
+          else
+            {
+              echo 'extra_files<<EOF'
+              echo "dist/CutBar-${VERSION}.dmg.ed"
+              echo "dist/appcast.xml"
+              echo EOF
+            } >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Create or update GitHub release
         uses: softprops/action-gh-release@v2
         with:
@@ -361,5 +500,6 @@ jobs:
           files: |
             dist/CutBar-${{ needs.prepare.outputs.version }}.dmg
             dist/CutBar-${{ needs.prepare.outputs.version }}.app.zip
+            ${{ steps.stage_assets.outputs.extra_files }}
           fail_on_unmatched_files: true
           overwrite_files: true

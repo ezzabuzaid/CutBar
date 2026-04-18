@@ -15,7 +15,7 @@ A menu bar meal tracker for your 18:6 protocol. Protein and calories at a glance
 2. Open the DMG and drag **CutBar.app** to **Applications**.
 3. Launch it. Look up — it lives in your menu bar.
 
-Requires macOS 14 Sonoma or later. The app is signed and notarized. Updates are manual today — re-download to upgrade.
+Requires macOS 14 Sonoma or later. The app is signed and notarized. CutBar checks for updates in the background and installs new versions in-place via Sparkle; you can also trigger a check from **About CutBar → Check for Updates…**.
 
 ## What you see
 
