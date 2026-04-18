@@ -44,6 +44,18 @@ enum Theme {
         return base.withAlphaComponent(alpha)
     }
 
+    static let pressed = NSColor(name: "cutbarPressed") { appearance in
+        let isHighContrast = isHighContrastAppearance(appearance)
+        let alpha: CGFloat
+        if isHighContrast {
+            alpha = isDarkAppearance(appearance) ? 0.30 : 0.24
+        } else {
+            alpha = isDarkAppearance(appearance) ? 0.22 : 0.16
+        }
+        let base = isDarkAppearance(appearance) ? darkInk : lightInk
+        return base.withAlphaComponent(alpha)
+    }
+
     static let warningForeground = NSColor(name: "cutbarWarningForeground") { appearance in
         if isDarkAppearance(appearance) {
             return isHighContrastAppearance(appearance) ? .systemYellow : NSColor(hex: 0xf5e279)
@@ -84,6 +96,7 @@ extension Color {
     static let themeSurface = Color(nsColor: Theme.surface)
     static let themeCard = Color(nsColor: Theme.card)
     static let themeHover = Color(nsColor: Theme.hover)
+    static let themePressed = Color(nsColor: Theme.pressed)
     static let themeWarningForeground = Color(nsColor: Theme.warningForeground)
     static let themeWarningBackground = Color(nsColor: Theme.warningBackground)
 }

@@ -246,8 +246,6 @@ private struct FooterRowButton: View {
     let systemImage: String
     let action: () -> Void
 
-    @State private var isHovered = false
-
     var body: some View {
         Button(action: action) {
             HStack(spacing: 10) {
@@ -258,15 +256,10 @@ private struct FooterRowButton: View {
                 Spacer()
             }
             .contentShape(Rectangle())
+            .padding(.horizontal, 8)
             .padding(.vertical, 6)
-            .background(
-                RoundedRectangle(cornerRadius: 6, style: .continuous)
-                    .fill(isHovered ? Color.themeHover : Color.clear)
-            )
         }
-        .buttonStyle(.pressable)
-        .onHover { isHovered = $0 }
-        .animation(.easeOut(duration: 0.15), value: isHovered)
+        .buttonStyle(.menuRow(cornerRadius: 6))
     }
 }
 
@@ -274,8 +267,6 @@ private struct RecentEntryRow: View {
     let entry: FoodEntry
     let onSelect: () -> Void
     let onDelete: () -> Void
-
-    @State private var isHovered = false
 
     var body: some View {
         Button(action: onSelect) {
@@ -298,13 +289,7 @@ private struct RecentEntryRow: View {
             .padding(.vertical, 6)
             .contentShape(Rectangle())
         }
-        .buttonStyle(.pressable)
-        .background(
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .fill(isHovered ? Color.themeHover : Color.clear)
-        )
-        .onHover { isHovered = $0 }
-        .animation(.easeOut(duration: 0.15), value: isHovered)
+        .buttonStyle(.menuRow(cornerRadius: 8))
         .accessibilityHint("Opens the dashboard")
         .contextMenu {
             Button(role: .destructive, action: onDelete) {

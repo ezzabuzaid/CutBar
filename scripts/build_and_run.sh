@@ -12,6 +12,7 @@ DIST_DIR="$ROOT_DIR/dist"
 APP_BUNDLE="$DIST_DIR/$APP_NAME.app"
 APP_CONTENTS="$APP_BUNDLE/Contents"
 APP_MACOS="$APP_CONTENTS/MacOS"
+APP_FRAMEWORKS="$APP_CONTENTS/Frameworks"
 APP_BINARY="$APP_MACOS/$APP_NAME"
 INFO_PLIST="$APP_CONTENTS/Info.plist"
 CACHE_ROOT="$ROOT_DIR/tmp/cutbar-swift-cache"
@@ -28,12 +29,30 @@ export SWIFTPM_CACHE_DIR="$CACHE_ROOT/swiftpm-cache"
 pkill -x "$APP_NAME" >/dev/null 2>&1 || true
 
 swift build --disable-sandbox --package-path "$PACKAGE_DIR"
-BUILD_BINARY="$(swift build --disable-sandbox --package-path "$PACKAGE_DIR" --show-bin-path)/$APP_NAME"
+BUILD_BIN_DIR="$(swift build --disable-sandbox --package-path "$PACKAGE_DIR" --show-bin-path)"
+BUILD_BINARY="$BUILD_BIN_DIR/$APP_NAME"
 
 rm -rf "$APP_BUNDLE"
-mkdir -p "$APP_MACOS"
+mkdir -p "$APP_MACOS" "$APP_FRAMEWORKS"
 cp "$BUILD_BINARY" "$APP_BINARY"
 chmod +x "$APP_BINARY"
+
+# Bundle any frameworks produced by SwiftPM (e.g. Sparkle) into Contents/Frameworks
+# so @rpath lookups at runtime succeed.
+shopt -s nullglob
+BUNDLED_FRAMEWORK=0
+for framework in "$BUILD_BIN_DIR"/*.framework; do
+  cp -R "$framework" "$APP_FRAMEWORKS/"
+  BUNDLED_FRAMEWORK=1
+done
+shopt -u nullglob
+
+if [[ "$BUNDLED_FRAMEWORK" -eq 1 ]]; then
+  # Ensure dyld resolves @rpath/*.framework from Contents/Frameworks.
+  if ! /usr/bin/otool -l "$APP_BINARY" | grep -q "@executable_path/../Frameworks"; then
+    /usr/bin/install_name_tool -add_rpath "@executable_path/../Frameworks" "$APP_BINARY"
+  fi
+fi
 
 cat >"$INFO_PLIST" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
