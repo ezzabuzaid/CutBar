@@ -11,6 +11,12 @@ struct DashboardView: View {
                     storageIssueBanner(storageIssue)
                 }
                 summaryCard
+                HeatmapCardView(model: model)
+
+                if let selectedDay = model.selectedDayLog {
+                    SelectedDayDetailCardView(day: selectedDay, onClear: model.clearSelection)
+                }
+
                 protocolCard
 
                 ForEach(MealSlot.allCases) { slot in

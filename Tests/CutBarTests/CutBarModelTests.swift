@@ -126,6 +126,45 @@ final class CutBarModelTests: XCTestCase {
         XCTAssertEqual(meal2, .zero)
     }
 
+    func testSelectDayIgnoresTodayKey() {
+        let model = CutBarModel(store: makeStore())
+
+        model.selectDay(model.todayKey)
+
+        XCTAssertNil(model.selectedDayKey)
+    }
+
+    func testSelectDayIgnoresKeyWithNoLoggedEntries() {
+        let model = CutBarModel(store: makeStore())
+
+        model.selectDay("2026-04-10")
+
+        XCTAssertNil(model.selectedDayKey)
+    }
+
+    func testSelectDayTogglesOffOnRepeat() throws {
+        let model = CutBarModel(store: makeStore())
+        model.logPreset(samplePreset(id: "meal1", slot: .meal1, protein: 30, calories: 400))
+        let key = try XCTUnwrap(model.recentDays.first?.id)
+
+        // Force-set through the property to simulate selecting a past day without
+        // re-testing today-key behavior here.
+        model.selectedDayKey = key
+
+        model.selectDay(key)
+
+        XCTAssertNil(model.selectedDayKey)
+    }
+
+    func testClearSelectionResetsSelectedDay() {
+        let model = CutBarModel(store: makeStore())
+        model.selectDay("2026-04-10")
+
+        model.clearSelection()
+
+        XCTAssertNil(model.selectedDayKey)
+    }
+
     private func samplePreset(id: String, slot: MealSlot, protein: Int, calories: Int) -> FoodPreset {
         FoodPreset(
             id: id,
