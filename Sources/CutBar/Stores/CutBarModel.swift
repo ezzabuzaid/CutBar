@@ -13,6 +13,7 @@ final class CutBarModel {
 
     var activeDraft: FoodEntryDraft?
     var storageIssue: String?
+    var selectedDayKey: String?
 
     init(
         plan: CutPlan = .current,
@@ -78,6 +79,39 @@ final class CutBarModel {
         document.logs
             .filter { !$0.entries.isEmpty }
             .sorted { $0.id > $1.id }
+    }
+
+    var heatmapDays: [HeatmapDay] {
+        HeatmapDay.window(
+            logs: document.logs,
+            proteinTarget: plan.dailyTargets.proteinGrams,
+            now: now
+        )
+    }
+
+    var currentStreak: Int {
+        HeatmapDay.streak(in: heatmapDays)
+    }
+
+    var selectedDayLog: DayLog? {
+        guard let key = selectedDayKey else { return nil }
+        return document.logs.first { $0.id == key }
+    }
+
+    func selectDay(_ key: String) {
+        if key == todayKey || key == selectedDayKey {
+            selectedDayKey = nil
+            return
+        }
+
+        let hasEntries = document.logs.contains { $0.id == key && !$0.entries.isEmpty }
+        guard hasEntries else { return }
+
+        selectedDayKey = key
+    }
+
+    func clearSelection() {
+        selectedDayKey = nil
     }
 
     func totalProgress(proteinTarget: Int, calorieTarget: Int) -> (protein: Double, calories: Double) {
