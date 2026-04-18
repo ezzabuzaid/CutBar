@@ -1,0 +1,163 @@
+name: Release Dry Run
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+  SPARKLE_VERSION: "2.6.4"
+
+jobs:
+  release_dry_run:
+    name: Build, Sign, Notarize (Dry Run)
+    runs-on: macos-latest
+    env:
+      VERSION: 0.0.${{ github.run_number }}
+      MACOS_CERT_P12_BASE64: ${{ secrets.MACOS_CERT_P12_BASE64 }}
+      MACOS_CERT_PASSWORD: ${{ secrets.MACOS_CERT_PASSWORD }}
+      APPLE_ID: ${{ secrets.APPLE_ID }}
+      APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+      NOTARY_PROFILE_SECRET: ${{ secrets.NOTARY_PROFILE }}
+      SIGNING_IDENTITY_SECRET: ${{ secrets.SIGNING_IDENTITY }}
+      SPARKLE_ED_PUBLIC_KEY: ${{ secrets.SPARKLE_ED_PUBLIC_KEY }}
+      SPARKLE_ED_PRIVATE_KEY: ${{ secrets.SPARKLE_ED_PRIVATE_KEY }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Validate required secrets
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          required_secrets=(
+            MACOS_CERT_P12_BASE64
+            MACOS_CERT_PASSWORD
+            APPLE_ID
+            APPLE_APP_SPECIFIC_PASSWORD
+            APPLE_TEAM_ID
+            SPARKLE_ED_PUBLIC_KEY
+            SPARKLE_ED_PRIVATE_KEY
+          )
+
+          for secret_name in "${required_secrets[@]}"; do
+            if [[ -z "${!secret_name:-}" ]]; then
+              echo "Missing required secret: $secret_name" >&2
+              exit 1
+            fi
+          done
+
+      - name: Import Developer ID certificate
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          KEYCHAIN_PATH="$RUNNER_TEMP/cutbar-signing.keychain-db"
+          KEYCHAIN_PASSWORD="$(openssl rand -base64 24)"
+          CERT_PATH="$RUNNER_TEMP/cutbar-signing.p12"
+
+          if ! echo "$MACOS_CERT_P12_BASE64" | base64 --decode > "$CERT_PATH" 2>/dev/null; then
+            echo "$MACOS_CERT_P12_BASE64" | base64 -D > "$CERT_PATH"
+          fi
+
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security list-keychains -d user -s "$KEYCHAIN_PATH" /Library/Keychains/System.keychain
+          security default-keychain -d user -s "$KEYCHAIN_PATH"
+          security import "$CERT_PATH" -k "$KEYCHAIN_PATH" -P "$MACOS_CERT_PASSWORD" -T /usr/bin/codesign -T /usr/bin/security
+          security set-key-partition-list -S apple-tool:,apple: -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+
+      - name: Install asset-generation toolchain
+        shell: bash
+        run: brew install librsvg
+
+      - name: Install Sparkle CLI tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          SPARKLE_DIR="$RUNNER_TEMP/sparkle"
+          mkdir -p "$SPARKLE_DIR"
+          curl -fsSL -o "$SPARKLE_DIR/sparkle.tar.xz" \
+            "https://github.com/sparkle-project/Sparkle/releases/download/${SPARKLE_VERSION}/Sparkle-${SPARKLE_VERSION}.tar.xz"
+          tar -xf "$SPARKLE_DIR/sparkle.tar.xz" -C "$SPARKLE_DIR"
+          test -x "$SPARKLE_DIR/bin/sign_update"
+          echo "SPARKLE_BIN_DIR=$SPARKLE_DIR/bin" >> "$GITHUB_ENV"
+
+      - name: Write Sparkle private key to file
+        shell: bash
+        run: |
+          set -euo pipefail
+          KEY_FILE="$RUNNER_TEMP/sparkle-ed-private.key"
+          umask 077
+          printf "%s" "$SPARKLE_ED_PRIVATE_KEY" > "$KEY_FILE"
+          echo "SPARKLE_ED_KEY_FILE=$KEY_FILE" >> "$GITHUB_ENV"
+
+      - name: Configure notarytool profile
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          NOTARY_PROFILE="${NOTARY_PROFILE_SECRET:-CutBar}"
+          echo "NOTARY_PROFILE=$NOTARY_PROFILE" >> "$GITHUB_ENV"
+
+          xcrun notarytool store-credentials "$NOTARY_PROFILE" \
+            --apple-id "$APPLE_ID" \
+            --team-id "$APPLE_TEAM_ID" \
+            --password "$APPLE_APP_SPECIFIC_PASSWORD"
+
+      - name: Run test suite
+        shell: bash
+        run: swift test --disable-sandbox
+
+      - name: Full release pipeline dry run
+        shell: bash
+        env:
+          TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          set -euo pipefail
+
+          if [[ -n "${SIGNING_IDENTITY_SECRET:-}" ]]; then
+            export SIGNING_IDENTITY="$SIGNING_IDENTITY_SECRET"
+          fi
+
+          ./scripts/release.sh "$VERSION"
+
+      - name: Verify packaged DMG contents and notarized app
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          DMG_PATH="dist/CutBar-${VERSION}.dmg"
+          APP_ZIP="dist/CutBar-${VERSION}.app.zip"
+          DMG_ED="dist/CutBar-${VERSION}.dmg.ed"
+
+          test -f "$DMG_PATH"
+          test -f "$APP_ZIP"
+          test -f "$DMG_ED"
+
+          MOUNT_POINT="$(mktemp -d -t cutbar-ci-dmg)"
+          cleanup() {
+            if mount | grep -q " on $MOUNT_POINT "; then
+              hdiutil detach "$MOUNT_POINT" -force >/dev/null 2>&1 || true
+            fi
+            rm -rf "$MOUNT_POINT"
+          }
+          trap cleanup EXIT
+
+          hdiutil attach "$DMG_PATH" -readonly -nobrowse -mountpoint "$MOUNT_POINT" >/dev/null
+
+          test -d "$MOUNT_POINT/CutBar.app"
+          test -L "$MOUNT_POINT/Applications"
+
+          codesign --verify --strict --deep --verbose=2 "$MOUNT_POINT/CutBar.app"
+          spctl -a -vvv --type execute "$MOUNT_POINT/CutBar.app"
+          /usr/bin/otool -L "$MOUNT_POINT/CutBar.app/Contents/MacOS/CutBar" | grep -F "@rpath/Sparkle.framework/Versions/B/Sparkle" >/dev/null
+

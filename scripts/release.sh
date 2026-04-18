@@ -52,7 +52,7 @@ if [[ "$RELEASE_MODE" != "full" && "$RELEASE_MODE" != "package-only" ]]; then
 fi
 
 ensure_framework_rpath() {
-  if ! /usr/bin/otool -l "$APP_BINARY" | grep -q "@executable_path/../Frameworks"; then
+  if ! /usr/bin/otool -l "$APP_BINARY" | grep -F "@executable_path/../Frameworks" >/dev/null; then
     /usr/bin/install_name_tool -add_rpath "@executable_path/../Frameworks" "$APP_BINARY"
   fi
 }
@@ -72,12 +72,46 @@ verify_embedded_rpath_frameworks() {
     fi
   done < <(/usr/bin/otool -L "$APP_BINARY" | awk '/@rpath\/.*\.framework\// {print $1}')
 
-  if ! /usr/bin/otool -l "$APP_BINARY" | grep -q "@executable_path/../Frameworks"; then
+  if ! /usr/bin/otool -l "$APP_BINARY" | grep -F "@executable_path/../Frameworks" >/dev/null; then
     printf "Missing LC_RPATH entry '@executable_path/../Frameworks' in %s.\n" "$APP_BINARY" >&2
     missing=1
   fi
 
   if [[ "$missing" -ne 0 ]]; then
+    exit 1
+  fi
+}
+
+verify_developer_id_signatures() {
+  local failures=0
+  local path
+
+  while IFS= read -r -d '' path; do
+    local description
+    description="$(/usr/bin/file -b "$path" 2>/dev/null || true)"
+    if [[ "$description" != *"Mach-O"* ]]; then
+      continue
+    fi
+
+    local signing_info
+    if ! signing_info="$(codesign -dvv "$path" 2>&1)"; then
+      printf "Failed to inspect code signature for %s\n" "$path" >&2
+      failures=1
+      continue
+    fi
+
+    if ! grep -F "Authority=Developer ID Application:" <<<"$signing_info" >/dev/null; then
+      printf "Missing Developer ID authority on %s\n" "$path" >&2
+      failures=1
+    fi
+
+    if ! grep -F "Timestamp=" <<<"$signing_info" >/dev/null; then
+      printf "Missing secure timestamp on %s\n" "$path" >&2
+      failures=1
+    fi
+  done < <(find "$APP_BUNDLE" -type f -print0)
+
+  if [[ "$failures" -ne 0 ]]; then
     exit 1
   fi
 }
@@ -301,6 +335,8 @@ codesign --force --sign "$SIGNING_IDENTITY" \
   "$APP_BUNDLE"
 
 say "Verifying signature"
+say "Checking Developer ID signatures on embedded binaries"
+verify_developer_id_signatures
 codesign --verify --strict --deep --verbose=2 "$APP_BUNDLE"
 spctl -a -vvv --type execute "$APP_BUNDLE" || true
 
