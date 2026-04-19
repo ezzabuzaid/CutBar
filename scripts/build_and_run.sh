@@ -83,6 +83,18 @@ cat >"$INFO_PLIST" <<PLIST
 </plist>
 PLIST
 
+sign_app_if_needed() {
+  if /usr/bin/codesign --verify --deep --strict "$APP_BUNDLE" >/dev/null 2>&1; then
+    return
+  fi
+
+  # Remove stale signatures first so re-signing works without --force.
+  /usr/bin/codesign --remove-signature "$APP_BUNDLE" >/dev/null 2>&1 || true
+  /usr/bin/codesign --deep --sign - "$APP_BUNDLE"
+}
+
+sign_app_if_needed
+
 open_app() {
   /usr/bin/open -n "$APP_BUNDLE"
 }
