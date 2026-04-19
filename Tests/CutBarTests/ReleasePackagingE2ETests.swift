@@ -70,6 +70,7 @@ final class ReleasePackagingE2ETests: XCTestCase {
             loadCommands.stdout.contains("@executable_path/../Frameworks"),
             "Expected @executable_path/../Frameworks rpath in app binary load commands."
         )
+
     }
 
     private func repositoryRoot() -> URL {

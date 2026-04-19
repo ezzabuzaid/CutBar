@@ -14,7 +14,6 @@ private final class AppDelegate: NSObject, NSApplicationDelegate {
 struct CutBarApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @State private var model = CutBarModel()
-    @StateObject private var updater = Updater()
 
     var body: some Scene {
         MenuBarExtra {
@@ -56,7 +55,7 @@ struct CutBarApp: App {
         .windowResizability(.contentMinSize)
 
         Window("About CutBar", id: "about") {
-            AboutView(updater: updater)
+            AboutView()
         }
         .defaultSize(width: 360, height: 360)
         .windowResizability(.contentSize)

@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct AboutView: View {
-    @ObservedObject var updater: Updater
+    @StateObject private var updater = Updater()
 
     private var versionString: String {
         let info = Bundle.main.infoDictionary
