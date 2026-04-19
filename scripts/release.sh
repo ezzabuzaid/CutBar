@@ -208,8 +208,17 @@ for bundle in "$BUILD_BIN_PATH"/*.bundle; do
   bundle_name="$(basename "$bundle")"
   dest="$APP_RESOURCES/$bundle_name"
   rm -rf "$dest"
-  mkdir -p "$dest/Contents/Resources"
-  cat >"$dest/Contents/Info.plist" <<PLIST
+
+  if [[ -f "$bundle/Contents/Info.plist" ]]; then
+    # Multi-arch builds go through xcodebuild and already produce a
+    # structured bundle (Contents/Info.plist + Contents/Resources/Assets.car).
+    # Copy as-is; wrapping it again would double-nest resources and break
+    # Bundle.module lookups at runtime.
+    cp -R "$bundle" "$dest"
+  else
+    # Native `swift build` produces a flat resource bundle. Wrap it.
+    mkdir -p "$dest/Contents/Resources"
+    cat >"$dest/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -227,11 +236,11 @@ for bundle in "$BUILD_BIN_PATH"/*.bundle; do
 </dict>
 </plist>
 PLIST
-  # Copy every item from the flat SPM bundle into the proper Resources/
-  for item in "$bundle"/*; do
-    [ -e "$item" ] || continue
-    cp -R "$item" "$dest/Contents/Resources/"
-  done
+    for item in "$bundle"/*; do
+      [ -e "$item" ] || continue
+      cp -R "$item" "$dest/Contents/Resources/"
+    done
+  fi
 done
 
 verify_embedded_rpath_frameworks
