@@ -16,6 +16,21 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  test:
+    name: Swift Tests
+    runs-on: macos-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Install asset-generation toolchain
+        shell: bash
+        run: brew install librsvg
+
+      - name: Run Swift test suite
+        shell: bash
+        run: swift test --disable-sandbox
+
   prepare:
     name: Prepare Release Metadata
     runs-on: macos-latest
@@ -65,7 +80,9 @@ jobs:
   build_and_notarize:
     name: Build and Notarize
     runs-on: macos-latest
-    needs: prepare
+    needs:
+      - prepare
+      - test
     env:
       VERSION: ${{ needs.prepare.outputs.version }}
       IS_PRERELEASE: ${{ needs.prepare.outputs.is_prerelease }}
@@ -169,10 +186,6 @@ jobs:
             --apple-id "$APPLE_ID" \
             --team-id "$APPLE_TEAM_ID" \
             --password "$APPLE_APP_SPECIFIC_PASSWORD"
-
-      - name: Run test suite
-        shell: bash
-        run: swift test --disable-sandbox
 
       - name: Build, sign, notarize, and package
         shell: bash
