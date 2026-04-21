@@ -45,14 +45,14 @@ struct DashboardView: View {
 
     private var summaryCard: some View {
         let progress = model.totalProgress(
-            proteinTarget: model.plan.dailyTargets.proteinGrams,
-            calorieTarget: model.plan.dailyTargets.calories
+            proteinTarget: model.profile.dailyTargets.proteinGrams,
+            calorieTarget: model.profile.dailyTargets.calories
         )
 
         return VStack(alignment: .leading, spacing: 14) {
             Text("CutBar")
                 .font(.appLargeTitle)
-            Text("Built around your repo plan: 18:6 feeding window, Meal 1 -> gym -> shake -> Meal 2.")
+            Text(model.profileSummary)
                 .font(.appSubheadline)
                 .foregroundStyle(.secondary)
 
@@ -68,14 +68,14 @@ struct DashboardView: View {
             progressRow(
                 title: "Protein",
                 current: model.todayTotals.proteinGrams,
-                target: model.plan.dailyTargets.proteinGrams,
+                target: model.profile.dailyTargets.proteinGrams,
                 progress: progress.protein
             )
 
             progressRow(
                 title: "Calories",
                 current: model.todayTotals.calories,
-                target: model.plan.dailyTargets.calories,
+                target: model.profile.dailyTargets.calories,
                 progress: progress.calories
             )
 
@@ -94,12 +94,12 @@ struct DashboardView: View {
                 .font(.appHeadline)
 
             HStack {
-                statPill(title: "Fast", value: model.plan.fastingWindowText)
-                statPill(title: "Feed", value: model.plan.feedingWindowText)
+                statPill(title: "Fast", value: model.profile.fastingWindowText)
+                statPill(title: "Feed", value: model.profile.feedingWindowText)
             }
 
             VStack(alignment: .leading, spacing: 6) {
-                ForEach(model.plan.rules, id: \.self) { rule in
+                ForEach(model.protocolRules, id: \.self) { rule in
                     Label(rule, systemImage: "checkmark.circle")
                         .foregroundStyle(.secondary)
                 }

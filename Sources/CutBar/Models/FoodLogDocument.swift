@@ -20,6 +20,17 @@ struct DayLog: Codable, Hashable, Identifiable {
 struct FoodLogDocument: Codable, Hashable {
     var logs: [DayLog]
     var lastUpdatedAt: Date
+    var profile: UserProfile
 
-    static let empty = FoodLogDocument(logs: [], lastUpdatedAt: .now)
+    init(
+        logs: [DayLog],
+        lastUpdatedAt: Date,
+        profile: UserProfile = .seeded()
+    ) {
+        self.logs = logs
+        self.lastUpdatedAt = lastUpdatedAt
+        self.profile = profile
+    }
+
+    static let empty = FoodLogDocument(logs: [], lastUpdatedAt: .now, profile: .seeded())
 }

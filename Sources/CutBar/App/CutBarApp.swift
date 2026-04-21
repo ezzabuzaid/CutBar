@@ -54,6 +54,12 @@ struct CutBarApp: App {
         .defaultSize(width: 560, height: 680)
         .windowResizability(.contentMinSize)
 
+        Settings {
+            ProfileSettingsView(model: model)
+                .tint(Color.themeAccent)
+                .foregroundColor(Color.themeInk)
+        }
+
         Window("About CutBar", id: "about") {
             AboutView()
         }

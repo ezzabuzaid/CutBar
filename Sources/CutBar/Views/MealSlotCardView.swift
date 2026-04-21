@@ -6,7 +6,7 @@ struct MealSlotCardView: View {
     let slot: MealSlot
 
     var body: some View {
-        let target = model.plan.target(for: slot)
+        let target = model.profile.target(for: slot)
         let summary = model.slotSummary(for: slot)
         let proteinProgress = target.proteinGrams == 0 ? 0 : min(1, Double(summary.proteinGrams) / Double(target.proteinGrams))
         let calorieProgress = target.calories == 0 ? 0 : min(1, Double(summary.calories) / Double(target.calories))
@@ -19,7 +19,7 @@ struct MealSlotCardView: View {
                     Label(slot.title, systemImage: slot.systemImage)
                         .font(.appTitle3)
                         .symbolEffect(.bounce, value: entryCount)
-                    Text(slot.windowText)
+                    Text(model.windowText(for: slot))
                         .font(.appSubheadline)
                         .foregroundStyle(.secondary)
                 }

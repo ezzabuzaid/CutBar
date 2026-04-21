@@ -38,4 +38,28 @@ enum CutBarFormatters {
 
         return dayDisplay.string(from: date)
     }
+
+    static func clockTime(for minutes: Int) -> String {
+        var calendar = Calendar.current
+        calendar.timeZone = .current
+        let boundedMinutes = max(0, min(23 * 60 + 59, minutes))
+        let components = DateComponents(
+            calendar: calendar,
+            year: 2001,
+            month: 1,
+            day: 1,
+            hour: boundedMinutes / 60,
+            minute: boundedMinutes % 60
+        )
+
+        guard let date = calendar.date(from: components) else {
+            return "--:--"
+        }
+
+        return time.string(from: date)
+    }
+
+    static func timeRangeText(startMinutes: Int, endMinutes: Int) -> String {
+        "\(clockTime(for: startMinutes)) - \(clockTime(for: endMinutes))"
+    }
 }

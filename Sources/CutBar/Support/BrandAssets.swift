@@ -2,8 +2,8 @@ import AppKit
 import SwiftUI
 
 enum BrandAssets {
-    nonisolated(unsafe) static let menuBarIcon = loadImage(named: "MenuBarIcon", pointSize: NSSize(width: 18, height: 18), template: true)
-    nonisolated(unsafe) static let wordmark = loadImage(named: "Wordmark", pointSize: NSSize(width: 320, height: 80), template: false)
+    static let menuBarIcon = loadImage(named: "MenuBarIcon", pointSize: NSSize(width: 18, height: 18), template: true)
+    static let wordmark = loadImage(named: "Wordmark", pointSize: NSSize(width: 320, height: 80), template: false)
 
     private static func loadImage(named name: String, pointSize: NSSize, template: Bool) -> NSImage {
         let bundle = Bundle.module

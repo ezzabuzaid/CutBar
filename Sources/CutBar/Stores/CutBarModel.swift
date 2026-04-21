@@ -4,8 +4,6 @@ import Observation
 @MainActor
 @Observable
 final class CutBarModel {
-    let plan: CutPlan
-
     private let store: FoodLogStore
     private(set) var document: FoodLogDocument
     private(set) var now: Date
@@ -16,10 +14,8 @@ final class CutBarModel {
     var selectedDayKey: String?
 
     init(
-        plan: CutPlan = .current,
         store: FoodLogStore = FoodLogStore()
     ) {
-        self.plan = plan
         self.store = store
         now = .now
 
@@ -55,8 +51,16 @@ final class CutBarModel {
         todayLog.totals
     }
 
+    var profile: UserProfile {
+        document.profile
+    }
+
     var currentPhase: DayPhase {
-        plan.phase(at: now)
+        profile.phase(at: now)
+    }
+
+    var currentPhaseDetail: String {
+        currentPhase.detail(for: profile)
     }
 
     var menuBarTitle: String {
@@ -68,11 +72,11 @@ final class CutBarModel {
     }
 
     var remainingProtein: Int {
-        max(0, plan.dailyTargets.proteinGrams - todayTotals.proteinGrams)
+        max(0, profile.dailyTargets.proteinGrams - todayTotals.proteinGrams)
     }
 
     var remainingCalories: Int {
-        max(0, plan.dailyTargets.calories - todayTotals.calories)
+        max(0, profile.dailyTargets.calories - todayTotals.calories)
     }
 
     var recentDays: [DayLog] {
@@ -84,7 +88,7 @@ final class CutBarModel {
     var heatmapDays: [HeatmapDay] {
         HeatmapDay.window(
             logs: document.logs,
-            proteinTarget: plan.dailyTargets.proteinGrams,
+            proteinTarget: profile.dailyTargets.proteinGrams,
             now: now
         )
     }
@@ -129,11 +133,23 @@ final class CutBarModel {
     }
 
     func presets(for slot: MealSlot) -> [FoodPreset] {
-        plan.presetFoods.filter { $0.mealSlot == slot }
+        profile.enabledPresets.filter { $0.mealSlot == slot }
     }
 
     var quickPresets: [FoodPreset] {
-        Array(plan.presetFoods.prefix(3))
+        profile.quickPinnedPresets
+    }
+
+    func windowText(for slot: MealSlot) -> String {
+        profile.windowText(for: slot)
+    }
+
+    var protocolRules: [String] {
+        profile.protocolRules
+    }
+
+    var profileSummary: String {
+        "Personalized profile with \(profile.dailyTargets.proteinGrams)g protein and \(profile.dailyTargets.calories) kcal daily targets."
     }
 
     func startCustomEntry(for slot: MealSlot) {
@@ -141,10 +157,12 @@ final class CutBarModel {
             return
         }
 
+        let source = profile.defaultSource.trimmingCharacters(in: .whitespacesAndNewlines)
+
         activeDraft = FoodEntryDraft(
             mealSlot: slot,
-            source: slot == .shake ? "Home" : "Restaurant",
-            calorieBuffer: slot == .shake ? .none : plan.defaultRestaurantBuffer
+            source: source.isEmpty ? "Custom" : source,
+            calorieBuffer: profile.defaultRestaurantBuffer
         )
         AppLogger.actions.info("Opened custom entry draft for \(slot.rawValue, privacy: .public).")
     }
@@ -200,6 +218,134 @@ final class CutBarModel {
         case let .failure(error):
             storageIssue = error.userFacingMessage
             AppLogger.actions.error("Failed to delete entry: \(error.userFacingMessage, privacy: .public)")
+        }
+    }
+
+    func saveProfile(_ profile: UserProfile) -> Bool {
+        guard canMutateStorage else {
+            return false
+        }
+
+        return updateProfile { current in
+            var normalized = profile
+            normalized.normalizeForPersistence()
+            current = normalized
+        }
+    }
+
+    func updateDailyTargets(_ targets: DailyTargets) {
+        _ = updateProfile { profile in
+            profile.dailyTargets = targets
+        }
+    }
+
+    func updateSlotTarget(for slot: MealSlot, target: MealTarget) {
+        _ = updateProfile { profile in
+            profile.setTarget(target, for: slot)
+        }
+    }
+
+    func updateSlotWindow(for slot: MealSlot, window: SlotWindow) {
+        _ = updateProfile { profile in
+            profile.setSlotWindow(window, for: slot)
+        }
+    }
+
+    func updateDefaults(source: String, restaurantBuffer: CalorieBuffer) {
+        _ = updateProfile { profile in
+            profile.defaultSource = source
+            profile.defaultRestaurantBuffer = restaurantBuffer
+        }
+    }
+
+    func addPreset(_ preset: FoodPreset) {
+        _ = updateProfile { profile in
+            profile.presets.append(preset)
+            profile.normalizePresetSortOrder()
+        }
+    }
+
+    func updatePreset(_ preset: FoodPreset) {
+        _ = updateProfile { profile in
+            guard let index = profile.presets.firstIndex(where: { $0.id == preset.id }) else { return }
+            profile.presets[index] = preset
+            profile.normalizePresetSortOrder()
+        }
+    }
+
+    func deletePreset(id: String) {
+        _ = updateProfile { profile in
+            profile.presets.removeAll { $0.id == id }
+            profile.normalizePresetSortOrder()
+        }
+    }
+
+    func setPresetPinned(id: String, isPinned: Bool) {
+        _ = updateProfile { profile in
+            guard let index = profile.presets.firstIndex(where: { $0.id == id }) else { return }
+            guard profile.presets[index].isEnabled || !isPinned else { return }
+
+            if isPinned && !profile.presets[index].isPinned {
+                let pinnedCount = profile.presets.filter { $0.isPinned && $0.isEnabled }.count
+                guard pinnedCount < 3 else { return }
+                let nextOrder = (profile.presets.filter { $0.isPinned && $0.isEnabled }.map(\.sortOrder).max() ?? -1) + 1
+                profile.presets[index].sortOrder = nextOrder
+            }
+
+            profile.presets[index].isPinned = isPinned
+            profile.normalizePresetSortOrder()
+        }
+    }
+
+    func movePinnedPreset(id: String, up: Bool) {
+        _ = updateProfile { profile in
+            var pinned = profile.presets
+                .filter { $0.isPinned && $0.isEnabled }
+                .sorted { $0.sortOrder < $1.sortOrder }
+            guard let index = pinned.firstIndex(where: { $0.id == id }) else { return }
+            let destination = up ? index - 1 : index + 1
+            guard destination >= 0, destination < pinned.count else { return }
+            pinned.swapAt(index, destination)
+            for (order, pinnedPreset) in pinned.enumerated() {
+                if let presetIndex = profile.presets.firstIndex(where: { $0.id == pinnedPreset.id }) {
+                    profile.presets[presetIndex].sortOrder = order
+                }
+            }
+            profile.normalizePresetSortOrder()
+        }
+    }
+
+    func togglePresetEnabled(id: String, isEnabled: Bool) {
+        _ = updateProfile { profile in
+            guard let index = profile.presets.firstIndex(where: { $0.id == id }) else { return }
+            profile.presets[index].isEnabled = isEnabled
+            if !isEnabled {
+                profile.presets[index].isPinned = false
+            }
+            profile.normalizePresetSortOrder()
+        }
+    }
+
+    private func updateProfile(_ transform: (inout UserProfile) -> Void) -> Bool {
+        guard canMutateStorage else {
+            return false
+        }
+
+        switch store.update({ document in
+            var profile = document.profile
+            transform(&profile)
+            profile.normalizeForPersistence()
+            document.profile = profile
+        }) {
+        case let .success(document):
+            self.document = document
+            storageIssue = nil
+            AppLogger.actions.info("Saved personalized profile.")
+            return true
+        case let .failure(error):
+            storageIssue = error.userFacingMessage
+            AppLogger.actions.error("Failed to update profile: \(error.userFacingMessage, privacy: .public)")
+            return false
         }
     }
 

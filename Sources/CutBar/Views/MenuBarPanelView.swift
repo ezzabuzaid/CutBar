@@ -5,6 +5,7 @@ import SwiftUI
 struct MenuBarPanelView: View {
     @Bindable var model: CutBarModel
     @Environment(\.openWindow) private var openWindow
+    @Environment(\.openSettings) private var openSettings
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -25,8 +26,8 @@ struct MenuBarPanelView: View {
 
     private var headerCard: some View {
         let progress = model.totalProgress(
-            proteinTarget: model.plan.dailyTargets.proteinGrams,
-            calorieTarget: model.plan.dailyTargets.calories
+            proteinTarget: model.profile.dailyTargets.proteinGrams,
+            calorieTarget: model.profile.dailyTargets.calories
         )
 
         return VStack(alignment: .leading, spacing: 12) {
@@ -34,7 +35,7 @@ struct MenuBarPanelView: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(model.currentPhase.title)
                         .font(.appTitle3)
-                    Text(model.currentPhase.detail)
+                    Text(model.currentPhaseDetail)
                         .font(.appSubheadline)
                         .foregroundStyle(.secondary)
                 }
@@ -53,14 +54,14 @@ struct MenuBarPanelView: View {
             metricRow(
                 title: "Protein",
                 current: model.todayTotals.proteinGrams,
-                target: model.plan.dailyTargets.proteinGrams,
+                target: model.profile.dailyTargets.proteinGrams,
                 progress: progress.protein
             )
 
             metricRow(
                 title: "Calories",
                 current: model.todayTotals.calories,
-                target: model.plan.dailyTargets.calories,
+                target: model.profile.dailyTargets.calories,
                 progress: progress.calories
             )
 
@@ -77,7 +78,7 @@ struct MenuBarPanelView: View {
 
             ForEach(MealSlot.allCases) { slot in
                 let totals = model.slotSummary(for: slot)
-                let target = model.plan.target(for: slot)
+                let target = model.profile.target(for: slot)
 
                 HStack(spacing: 10) {
                     Image(systemName: slot.systemImage)
@@ -87,7 +88,7 @@ struct MenuBarPanelView: View {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(slot.shortTitle)
                             .font(.appSubheadlineMedium)
-                        Text(slot.windowText)
+                        Text(model.windowText(for: slot))
                             .font(.appCaption)
                             .foregroundStyle(.secondary)
                     }
@@ -124,28 +125,35 @@ struct MenuBarPanelView: View {
                 .disabled(!model.canMutateStorage)
             }
 
-            ForEach(model.quickPresets) { preset in
-                Button {
-                    model.logPreset(preset)
-                } label: {
-                    HStack {
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(preset.title)
-                                .font(.appSubheadlineMedium)
-                            Text("\(preset.proteinGrams)g protein, \(preset.calories) kcal")
-                                .font(.appCaption)
-                                .foregroundStyle(.secondary)
+            if model.quickPresets.isEmpty {
+                Text("No pinned quick presets yet. Add and pin them in Profile Settings.")
+                    .font(.appCaption)
+                    .foregroundStyle(.secondary)
+                    .padding(.vertical, 4)
+            } else {
+                ForEach(model.quickPresets) { preset in
+                    Button {
+                        model.logPreset(preset)
+                    } label: {
+                        HStack {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(preset.title)
+                                    .font(.appSubheadlineMedium)
+                                Text("\(preset.proteinGrams)g protein, \(preset.calories) kcal")
+                                    .font(.appCaption)
+                                    .foregroundStyle(.secondary)
+                            }
+
+                            Spacer()
+
+                            Image(systemName: "plus.circle.fill")
+                                .foregroundStyle(.tint)
                         }
-
-                        Spacer()
-
-                        Image(systemName: "plus.circle.fill")
-                            .foregroundStyle(.tint)
+                        .frame(maxWidth: .infinity, alignment: .leading)
                     }
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .buttonStyle(.bordered)
+                    .disabled(!model.canMutateStorage)
                 }
-                .buttonStyle(.bordered)
-                .disabled(!model.canMutateStorage)
             }
         }
     }
@@ -180,6 +188,11 @@ struct MenuBarPanelView: View {
 
             footerRow("Meal History", systemImage: "clock.arrow.circlepath") {
                 openWindow(id: "history")
+                NSApp.activate(ignoringOtherApps: true)
+            }
+
+            footerRow("Profile Settings", systemImage: "slider.horizontal.3") {
+                openSettings()
                 NSApp.activate(ignoringOtherApps: true)
             }
 

@@ -5,7 +5,7 @@
 [![Platform](https://img.shields.io/badge/platform-macOS%2014%2B-2f312d)](https://www.apple.com/macos)
 [![Swift](https://img.shields.io/badge/swift-6-3d755d)](https://swift.org)
 
-A menu bar meal tracker for your 18:6 protocol. Protein and calories at a glance — and your data never leaves your Mac.
+A menu bar meal tracker for your cut protocol. Protein and calories at a glance — and your data never leaves your Mac.
 
 ![CutBar](branding/generated/hero.png)
 
@@ -26,25 +26,23 @@ Requires macOS 14 Sonoma or later. The app is signed and notarized. CutBar check
 - The phase you're currently in — Fasting, Meal 1, Gym, Shake, or Meal 2 — with its time window.
 - Progress bars toward your daily protein and calorie targets.
 - All three meal slots with the protein logged in each.
-- **Quick Log** — one-click food presets, or `+ New Entry` for anything else.
+- **Quick Log** — up to three pinned presets from your profile, or `+ New Entry` for anything else.
 - Your last three entries (right-click to delete).
 
 ## The protocol
 
-CutBar is built around an 18:6 feeding window with three fixed slots:
+CutBar keeps three fixed slots (`Meal 1`, `Post-Gym Shake`, `Meal 2`) and lets you personalize:
 
-| Slot           | Window              |
-| -------------- | ------------------- |
-| Meal 1         | 5:00 PM – 6:30 PM   |
-| Post-Gym Shake | 8:00 PM – 8:30 PM   |
-| Meal 2         | 8:30 PM – 11:00 PM  |
-
-The windows aren't configurable yet.
+- Daily targets (protein, calories, fat, carbs)
+- Slot windows and per-slot targets
+- Default entry source and restaurant calorie buffer
+- Presets, including enabled/pinned state and pinned order for menu-bar Quick Log
 
 ## Windows
 
 - **Dashboard** — full-day view with a card per slot, targets, and what you've logged.
 - **Meal History** — scrollable list of past days, grouped by date.
+- **Profile Settings** — personalize targets, windows, defaults, and presets.
 
 Open either from the menu bar panel footer.
 
@@ -53,6 +51,7 @@ Open either from the menu bar panel footer.
 | Key | Action           |
 | --- | ---------------- |
 | ⌘N  | New entry        |
+| ⌘,  | Profile settings |
 | ⌘R  | Refresh totals   |
 | ⌘Y  | Meal History     |
 | ⌘S  | Save entry       |

@@ -25,17 +25,24 @@ enum DayPhase: String, Codable, Hashable, Identifiable {
     }
 
     var detail: String {
+        detail(for: UserProfile.seeded())
+    }
+
+    func detail(for profile: UserProfile) -> String {
         switch self {
         case .fasting:
-            return "Water, black coffee, or black tea only until 5 PM."
+            return "Fasting window until \(CutBarFormatters.clockTime(for: profile.feedingWindowStartMinutes))."
         case .mealOneWindow:
-            return "Front-load protein before training."
+            let target = profile.target(for: .meal1)
+            return "Front-load protein. Target: \(target.proteinGrams)g / \(target.calories) kcal."
         case .gymWindow:
-            return "Lift after Meal 1 and keep the intake light."
+            return "Training block before shake window starts at \(CutBarFormatters.clockTime(for: profile.gymCutoffMinutes))."
         case .shakeWindow:
-            return "Recover with the 40g post-gym shake."
+            let target = profile.target(for: .shake)
+            return "Recovery window. Target: \(target.proteinGrams)g / \(target.calories) kcal."
         case .mealTwoWindow:
-            return "Finish the day with the biggest protein push."
+            let target = profile.target(for: .meal2)
+            return "Finish the day strong. Target: \(target.proteinGrams)g / \(target.calories) kcal."
         }
     }
 
@@ -84,15 +91,15 @@ enum DayPhase: String, Codable, Hashable, Identifiable {
 }
 
 struct MealTarget: Codable, Hashable {
-    let calories: Int
-    let proteinGrams: Int
+    var calories: Int
+    var proteinGrams: Int
 }
 
 struct DailyTargets: Codable, Hashable {
-    let calories: Int
-    let proteinGrams: Int
-    let fatGrams: Int
-    let carbGrams: Int
+    var calories: Int
+    var proteinGrams: Int
+    var fatGrams: Int
+    var carbGrams: Int
 }
 
 struct CutPlan: Codable, Hashable {
